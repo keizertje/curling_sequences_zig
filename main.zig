@@ -24,7 +24,24 @@ pub var dicts_mem: Map(usize, Map(i32, Set(i32))) = undefined;
 pub var seq_new: ArrayList(i32) = undefined;
 pub var dict_new: Map(i32, Set(i32)) = undefined;
 
+fn copyDictInto(dest: *Map(i32, Set(i32)), src: Map(i32, Set(i32))) !void {
+    dest.clearRetainingCapacity();
+    var it = src.iterator();
+    while (it.next()) |entry| {
+        var set = Set(i32).init(dest.allocator);
+        var value_it = entry.value_ptr.keyIterator();
+        while (value_it.next()) |key_ptr| {
+            try set.put(key_ptr.*, {});
+        }
+        try dest.put(entry.key_ptr.*, set);
+    }
+}
 
+fn cloneDict(src: Map(i32, Set(i32))) !Map(i32, Set(i32)) {
+    var dest = Map(i32, Set(i32)).init(src.allocator);
+    try copyDictInto(&dest, src);
+    return dest;
+}
 
 pub fn init() !void {
     arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
@@ -214,9 +231,9 @@ pub fn check_positive(len: i32) bool {
 
 pub fn append() !void {
     try generators_mem.put(periods.items.len, try generator.clone());
-    try dicts_mem.put(@intCast(periods.items.len), try dict.clone());
+    try dicts_mem.put(@intCast(periods.items.len), try cloneDict(dict));
     generator.items = seq_new.items[0..length];
-    dict = try dict_new.clone();
+    dict = try cloneDict(dict_new);
 
     if (dict.getPtr(c_cand) != null) {
         try dict.getPtr(c_cand).?.put(@intCast(length + periods.items.len), {});
@@ -295,7 +312,8 @@ pub fn append() !void {
 pub fn test_1() !bool {
     seq_new = try generator.clone(); // deinited in deinit()
     try seq_new.appendSlice(tail.items);
-    dict_new = try dict.clone(); // also deinited in deinit()
+    dict_new = try cloneDict(dict);
+
     const l: usize = seq_new.items.len;
     for (0..@intCast((c_cand - 1) * p_cand)) |i| {
         const a: i32 = seq_new.items[l - 1 - i];
