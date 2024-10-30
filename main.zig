@@ -1,14 +1,18 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
-inline fn Iterator(comptime T: type) type {return Set(T).keyIterator;}
+inline fn Iterator(comptime T: type) type {
+    return Set(T).keyIterator;
+}
 const ArrayList = std.ArrayList;
 const Map = std.AutoHashMap;
-inline fn Set(comptime T: type) type {return Map(T, void);}
+inline fn Set(comptime T: type) type {
+    return Map(T, void);
+}
 
 var arena: std.heap.ArenaAllocator = undefined;
 var allocator: Allocator = undefined;
 
-pub const length: i32 = 100;
+pub const length: i32 = 11;
 pub var c_cand: i32 = undefined;
 pub var p_cand: i32 = undefined;
 pub var tail: ArrayList(i32) = undefined;
@@ -105,15 +109,15 @@ pub fn deinit() void {
 
     seq_new.deinit();
     dict_new.deinit();
-    
+
     arena.deinit();
 }
 
 pub fn krul(seq: *ArrayList(i32), curl: *i32, period: *i32) !void {
     const l: usize = @intCast(seq.items.len);
-    for (1..l/2+1) |i| {
+    for (1..l / 2 + 1) |i| {
         var j: usize = i;
-        while (seq.items[l-j-1] == seq.items[l-j-1+i]) {
+        while (seq.items[l - j - 1] == seq.items[l - j - 1 + i]) {
             j += 1;
             if (j >= l) {
                 break;
@@ -176,31 +180,46 @@ pub fn check_c_cand_size() bool {
 
 pub fn up() !void {
     p_cand += 1;
-    loop: while(check_periods_size()) {
+    loop: while (check_periods_size()) {
         c_cand += 1;
         p_cand = 1;
         if (check_c_cand_size()) {
-            if (change_indices.get(periods.items.len) == null) { // usize or i32?
+            if (change_indices.get(periods.items.len) != null) { // usize or i32?
                 _ = change_indices.remove(periods.items.len); // usize or i32?
             }
             if (tail.items.len == 0) {
                 c_cand = 0;
                 break :loop;
             }
-            if (!(change_indices.get(periods.items.len - 1) == null)) { // usize or i32? werkt `!` hier?
+            if (change_indices.get(periods.items.len - 1) == null) { // usize or i32?
                 try change_indices.put(periods.items.len - 1, {});
-                _ = dict.getPtr(periods.getLast()).?.remove(@as(i32, @intCast(length + tail.items.len - 1)));
-                c_cand = tail.getLast() + 1;
+                _ = dict.getPtr(tail.getLast()).?.remove(@as(i32, @intCast(length + tail.items.len - 1)));
+                c_cand = tail.pop() + 1;
                 p_cand = 1;
-                _ = tail.pop();
                 _ = periods.pop();
-
             } else {
-                c_cand = tail.getLast();
-                p_cand = periods.getLast() + 1;
-                _ = tail.pop();
-                _ = periods.pop();
-                generator = generators_mem.get(periods.items.len).?;
+                for (tail.items) |i| {
+                    std.debug.print("{d}\t", .{i});
+                }
+                std.debug.print("\n", .{});
+                c_cand = tail.pop();
+                p_cand = periods.pop() + 1;
+
+                std.debug.print("length: {d}\n", .{periods.items.len});
+                var it = generators_mem.iterator();
+                while (it.next()) |item| {
+                    std.debug.print("{d}:\t", .{item.key_ptr.*});
+                    for (item.value_ptr.*.items) |int| {
+                        std.debug.print("{d}\t", .{int});
+                    }
+                    std.debug.print("\n\n", .{});
+                }
+                for (tail.items) |i| {
+                    std.debug.print("{d}\t", .{i});
+                }
+                std.debug.print("\n\n", .{});
+
+                generator = try generators_mem.get(periods.items.len).?.clone();
                 dict = dicts_mem.get(periods.items.len).?;
                 _ = generators_mem.remove(periods.items.len);
                 _ = dicts_mem.remove(periods.items.len);
@@ -221,7 +240,7 @@ pub fn real_gen_len() usize {
 }
 
 pub fn check_positive(len: i32) bool {
-    for (generator.items[length-len..]) |i| {
+    for (generator.items[length - len ..]) |i| {
         if (i < 1) {
             return false;
         }
@@ -333,8 +352,7 @@ pub fn test_1() !bool {
             }
             var deleted = dict_new.fetchRemove(b).?;
             deleted.value.deinit();
-        }
-        else if (b > a) {
+        } else if (b > a) {
             for (0..l) |j| {
                 if (seq_new.items[j] == a) {
                     seq_new.items[j] = b;
@@ -365,11 +383,11 @@ pub fn test_2() !bool {
 
     var curl: i32 = 1;
     var period: i32 = 0;
-    for (0..l-length+1) |i| {
+    for (0..l - length + 1) |i| {
         var temp: ArrayList(i32) = ArrayList(i32).init(allocator);
         defer temp.deinit();
 
-        try temp.appendSlice(seq_new.items[0..length+i]);
+        try temp.appendSlice(seq_new.items[0 .. length + i]);
 
         curl = 1;
         period = 0;
@@ -410,7 +428,7 @@ pub fn backtracking(k2: i32, p2: i32) !void {
     for (0..length) |i| {
         if (max_lengths.items[i] > record) {
             record = max_lengths.items[i];
-            std.debug.print("{d}: {d}, [", .{i+1, record});
+            std.debug.print("{d}: {d}, [", .{ i + 1, record });
             for (best_gens.items[i].items) |item| {
                 std.debug.print("{d}, ", .{item});
             }
@@ -428,5 +446,5 @@ pub fn main() !void {
     try init();
     defer deinit();
 
-    try backtracking(80, 80);
+    try backtracking(10, 10);
 }
