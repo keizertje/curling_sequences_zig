@@ -12,7 +12,7 @@ inline fn Set(comptime T: type) type {
 var arena: std.heap.ArenaAllocator = undefined;
 var allocator: Allocator = undefined;
 
-pub const length: i32 = 11;
+pub const length: i32 = 25;
 pub var c_cand: i32 = undefined;
 pub var p_cand: i32 = undefined;
 pub var tail: ArrayList(i32) = undefined;
@@ -188,7 +188,7 @@ pub fn up() !void {
                 _ = change_indices.remove(periods.items.len); // usize or i32?
             }
             if (tail.items.len == 0) {
-                c_cand = 0;
+                c_cand = 0; // terminate program
                 break :loop;
             }
             if (change_indices.get(periods.items.len - 1) == null) { // usize or i32?
@@ -198,29 +198,11 @@ pub fn up() !void {
                 p_cand = 1;
                 _ = periods.pop();
             } else {
-                for (tail.items) |i| {
-                    std.debug.print("{d}\t", .{i});
-                }
-                std.debug.print("\n", .{});
                 c_cand = tail.pop();
                 p_cand = periods.pop() + 1;
 
-                std.debug.print("length: {d}\n", .{periods.items.len});
-                var it = generators_mem.iterator();
-                while (it.next()) |item| {
-                    std.debug.print("{d}:\t", .{item.key_ptr.*});
-                    for (item.value_ptr.*.items) |int| {
-                        std.debug.print("{d}\t", .{int});
-                    }
-                    std.debug.print("\n\n", .{});
-                }
-                for (tail.items) |i| {
-                    std.debug.print("{d}\t", .{i});
-                }
-                std.debug.print("\n\n", .{});
-
                 generator = try generators_mem.get(periods.items.len).?.clone();
-                dict = dicts_mem.get(periods.items.len).?;
+                dict = try cloneDict(dicts_mem.get(periods.items.len).?);
                 _ = generators_mem.remove(periods.items.len);
                 _ = dicts_mem.remove(periods.items.len);
             }
@@ -251,7 +233,8 @@ pub fn check_positive(len: i32) bool {
 pub fn append() !void {
     try generators_mem.put(periods.items.len, try generator.clone());
     try dicts_mem.put(@intCast(periods.items.len), try cloneDict(dict));
-    generator.items = seq_new.items[0..length];
+    generator.clearAndFree();
+    try generator.appendSlice(seq_new.items[0..length]);
     dict = try cloneDict(dict_new);
 
     if (dict.getPtr(c_cand) != null) {
@@ -275,7 +258,7 @@ pub fn append() !void {
     var temp: ArrayList(i32) = try generator.clone();
     defer temp.deinit();
 
-    try temp.append(c_cand);
+    // try temp.append(c_cand);
     try temp.appendSlice(tail.items);
 
     loop: while (true) {
@@ -307,24 +290,24 @@ pub fn append() !void {
     try change_indices.put(periods.items.len, {});
     const len: usize = real_gen_len();
     if (max_lengths.getLast() == periods.items.len) {
-        var tmp: std.ArrayList(i32) = try generator.clone();
+        var tmp: std.ArrayList(i32) = try best_gens.getLast().clone();
         defer tmp.deinit();
 
-        for (0..@intCast(len)) |_| {
-            _ = tmp.swapRemove(tmp.items.len - 1);
-        }
-        try best_gens.append(try tmp.clone()); // this new one is automatically deinited in deinit()
-    }
-    if (max_lengths.getLast() < periods.items.len) {
-        _ = max_lengths.swapRemove(max_lengths.items.len - 1);
-        try max_lengths.append(periods.items.len); // werkt dit? zie github
-        var tmp: std.ArrayList(i32) = try generator.clone();
-        defer tmp.deinit();
-
-        for (0..len) |_| {
-            _ = tmp.swapRemove(tmp.items.len - 1);
-        }
+        try tmp.appendSlice(generator.items[0 .. generator.items.len - len]);
+        var last = best_gens.pop();
+        last.deinit();
         try best_gens.append(try tmp.clone());
+    }
+    if (max_lengths.items[len - 1] < periods.items.len) {
+        max_lengths.items[len - 1] = periods.items.len;
+
+        var tmp: ArrayList(i32) = ArrayList(i32).init(allocator);
+        defer tmp.deinit();
+        try tmp.appendSlice(generator.items[generator.items.len - len ..]);
+
+        var deleted = best_gens.items[len - 1];
+        best_gens.items[len - 1] = try tmp.clone();
+        deleted.deinit();
     }
 }
 
@@ -346,11 +329,12 @@ pub fn test_1() !bool {
                     seq_new.items[j] = a;
                 }
             }
-            var iterator = dict_new.getPtr(b).?.keyIterator();
+
+            var deleted = dict_new.fetchRemove(b).?;
+            var iterator = deleted.value.keyIterator();
             while (iterator.next()) |item| {
                 try dict_new.getPtr(a).?.put(item.*, {});
             }
-            var deleted = dict_new.fetchRemove(b).?;
             deleted.value.deinit();
         } else if (b > a) {
             for (0..l) |j| {
@@ -359,12 +343,12 @@ pub fn test_1() !bool {
                 }
             }
 
-            var iterator = dict_new.getPtr(a).?.keyIterator();
+            var deleted = dict_new.fetchRemove(a).?;
+            var iterator = deleted.value.keyIterator();
             while (iterator.next()) |item| {
                 try dict_new.getPtr(b).?.put(item.*, {});
             }
-
-            _ = dict_new.remove(a);
+            deleted.value.deinit();
         }
     }
     return true;
@@ -373,7 +357,7 @@ pub fn test_1() !bool {
 pub fn test_2() !bool {
     const l: usize = seq_new.items.len;
 
-    var tmp_seq: ArrayList(i32) = try seq_new.clone();
+    var tmp_seq = try seq_new.clone();
     defer tmp_seq.deinit();
     try tmp_seq.append(c_cand);
 
@@ -384,7 +368,7 @@ pub fn test_2() !bool {
     var curl: i32 = 1;
     var period: i32 = 0;
     for (0..l - length + 1) |i| {
-        var temp: ArrayList(i32) = ArrayList(i32).init(allocator);
+        var temp = ArrayList(i32).init(allocator);
         defer temp.deinit();
 
         try temp.appendSlice(seq_new.items[0 .. length + i]);
@@ -446,5 +430,8 @@ pub fn main() !void {
     try init();
     defer deinit();
 
-    try backtracking(10, 10);
+    const start = std.time.nanoTimestamp();
+    try backtracking(25, 25);
+    const end = std.time.nanoTimestamp();
+    std.debug.print("time elapsed: {d} ns", .{end - start});
 }
