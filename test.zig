@@ -257,3 +257,15 @@ test "tail_with_periods_part" {
     tail.clearAndFree();
     periods.clearAndFree();
 }
+
+test "complete story" {
+    try Main.init();
+    defer Main.deinit();
+
+    Main.allocator = std.testing.allocator;
+
+    const start = std.time.nanoTimestamp();
+    try Main.backtracking(10, 10);
+    const end = std.time.nanoTimestamp();
+    std.debug.print("time elapsed: {d} ns", .{end - start});
+}

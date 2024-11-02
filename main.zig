@@ -12,7 +12,7 @@ inline fn Set(comptime T: type) type {
 var arena: std.heap.ArenaAllocator = undefined;
 var allocator: Allocator = undefined;
 
-pub const length: i32 = 10;
+pub const length: i32 = 25;
 pub var c_cand: i32 = undefined;
 pub var p_cand: i32 = undefined;
 pub var tail: ArrayList(i32) = undefined;
@@ -57,8 +57,7 @@ fn clearDict(src: *Map(i32, Set(i32))) void {
 
 pub fn init() !void {
     arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    // allocator = arena.allocator();
-    allocator = std.testing.allocator;
+    allocator = arena.allocator();
 
     c_cand = 2;
     p_cand = 1;
@@ -478,16 +477,6 @@ pub fn main() !void {
 
     const start = std.time.nanoTimestamp();
     try backtracking(25, 25);
-    const end = std.time.nanoTimestamp();
-    std.debug.print("time elapsed: {d} ns", .{end - start});
-}
-
-test {
-    try init();
-    defer deinit();
-
-    const start = std.time.nanoTimestamp();
-    try backtracking(10, 10);
     const end = std.time.nanoTimestamp();
     std.debug.print("time elapsed: {d} ns", .{end - start});
 }
