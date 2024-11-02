@@ -1,8 +1,5 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
-inline fn Iterator(comptime T: type) type {
-    return Set(T).keyIterator;
-}
 const ArrayList = std.ArrayList;
 const Map = std.AutoHashMap;
 inline fn Set(comptime T: type) type {
@@ -12,7 +9,7 @@ inline fn Set(comptime T: type) type {
 var arena: std.heap.ArenaAllocator = undefined;
 var allocator: Allocator = undefined;
 
-pub const length: i32 = 25;
+pub const length: i32 = 20;
 pub var c_cand: i32 = undefined;
 pub var p_cand: i32 = undefined;
 pub var tail: ArrayList(i32) = undefined;
@@ -47,12 +44,18 @@ fn cloneDict(src: Map(i32, Set(i32))) !Map(i32, Set(i32)) {
     return dest;
 }
 
-fn clearDict(src: *Map(i32, Set(i32))) void {
+fn clearDict(comptime T: type, src: *T) void {
     var it = src.valueIterator();
     while (it.next()) |seq| {
         seq.deinit();
     }
     src.deinit();
+}
+
+fn clearOptional(comptime T: type, value: *?T) void {
+    if (value.* != null) {
+        value.*.?.value.deinit();
+    }
 }
 
 pub fn init() !void {
@@ -98,33 +101,22 @@ pub fn deinit() void {
     generator.deinit();
     max_lengths.deinit();
     change_indices.deinit();
+    seq_new.deinit();
 
-    var it1 = generators_mem.valueIterator();
-    var it2 = dict.valueIterator();
-    var it3 = dict_new.valueIterator();
-    var it4 = dicts_mem.valueIterator();
+    clearDict(Map(i32, Set(i32)), &dict);
+    clearDict(Map(i32, Set(i32)), &dict_new);
+    clearDict(Map(usize, ArrayList(i32)), &generators_mem);
 
-    while (it1.next()) |seq| seq.deinit();
-    while (it2.next()) |seq2| seq2.deinit();
-    while (it3.next()) |seq3| seq3.deinit();
-    while (it4.next()) |item| {
-        var it = item.valueIterator();
-        while (it.next()) |seq4| {
-            seq4.deinit();
-        }
-        item.deinit();
+    var it = dicts_mem.valueIterator();
+    while (it.next()) |item| {
+        clearDict(Map(i32, Set(i32)), item);
     }
-    generators_mem.deinit();
-    dict_new.deinit();
-    dict.deinit();
     dicts_mem.deinit();
 
     for (best_gens.items) |sequence| {
         sequence.deinit();
     }
     best_gens.deinit();
-
-    seq_new.deinit();
 
     arena.deinit();
 }
@@ -219,15 +211,16 @@ pub fn up() !void {
 
                 generator.clearAndFree();
                 generator = try generators_mem.get(periods.items.len).?.clone();
-                clearDict(&dict);
+                clearDict(Map(i32, Set(i32)), &dict);
                 dict = try cloneDict(dicts_mem.get(periods.items.len).?);
                 var del = generators_mem.fetchRemove(periods.items.len);
-                if (del != null) {
-                    del.?.value.deinit();
-                }
+                //if (del != null) {
+                //    del.?.value.deinit();
+                //}
+                clearOptional(Map(usize, ArrayList(i32)).KV, &del);
                 var deleted = dicts_mem.fetchRemove(periods.items.len);
                 if (deleted != null) {
-                    clearDict(&(deleted.?.value));
+                    clearDict(Map(i32, Set(i32)), &(deleted.?.value));
                 }
             }
         }
@@ -256,16 +249,17 @@ pub fn check_positive(len: i32) bool {
 
 pub fn append() !void {
     var del = try generators_mem.fetchPut(periods.items.len, try generator.clone());
-    if (del != null) {
-        del.?.value.deinit();
-    }
+    //if (del != null) {
+    //    del.?.value.deinit();
+    //}
+    clearOptional(Map(usize, ArrayList(i32)).KV, &del);
     var deleted = try dicts_mem.fetchPut(@intCast(periods.items.len), try cloneDict(dict));
     if (deleted != null) {
-        clearDict(&(deleted.?.value));
+        clearDict(Map(i32, Set(i32)), &(deleted.?.value));
     }
     generator.clearAndFree();
     try generator.appendSlice(seq_new.items[0..length]);
-    clearDict(&dict);
+    clearDict(Map(i32, Set(i32)), &dict);
     dict = try cloneDict(dict_new);
 
     if (dict.getPtr(c_cand) != null) {
@@ -278,13 +272,15 @@ pub fn append() !void {
         try set.put(@intCast(length + periods.items.len), {});
 
         var removed = try dict.fetchPut(c_cand, try set.clone());
-        if (removed != null) {
-            removed.?.value.deinit();
-        }
+        //if (removed != null) {
+        //    removed.?.value.deinit();
+        //}
+        clearOptional(Map(i32, Set(i32)).KV, &removed);
         removed = try dict_new.fetchPut(c_cand, try set.clone());
-        if (removed != null) {
-            removed.?.value.deinit();
-        }
+        //if (removed != null) {
+        //    removed.?.value.deinit();
+        //}
+        clearOptional(Map(i32, Set(i32)).KV, &removed);
     }
 
     try tail.append(c_cand);
@@ -319,13 +315,15 @@ pub fn append() !void {
             try set.put(@intCast(length + periods.items.len - 1), {});
 
             var removed = try dict.fetchPut(curl, try set.clone());
-            if (removed != null) {
-                removed.?.value.deinit();
-            }
+            //if (removed != null) {
+            //    removed.?.value.deinit();
+            //}
+            clearOptional(Map(i32, Set(i32)).KV, &removed);
             removed = try dict_new.fetchPut(curl, try set.clone());
-            if (removed != null) {
-                removed.?.value.deinit();
-            }
+            //if (removed != null) {
+            //    removed.?.value.deinit();
+            //}
+            clearOptional(Map(i32, Set(i32)).KV, &removed);
         }
     }
     c_cand = 2;
@@ -358,7 +356,7 @@ pub fn test_1() !bool {
     seq_new.clearAndFree();
     seq_new = try generator.clone(); // deinited in deinit()
     try seq_new.appendSlice(tail.items);
-    clearDict(&dict_new);
+    clearDict(Map(i32, Set(i32)), &dict_new);
     dict_new = try cloneDict(dict);
 
     const l: usize = seq_new.items.len;
@@ -375,12 +373,13 @@ pub fn test_1() !bool {
                 }
             }
 
-            var deleted = dict_new.fetchRemove(b).?;
-            var iterator = deleted.value.keyIterator();
+            var deleted = dict_new.fetchRemove(b);
+            var iterator = deleted.?.value.keyIterator();
             while (iterator.next()) |item| {
                 try dict_new.getPtr(a).?.put(item.*, {});
             }
-            deleted.value.deinit();
+            // deleted.value.deinit();
+            clearOptional(Map(i32, Set(i32)).KV, &deleted);
         } else if (b > a) {
             for (0..l) |j| {
                 if (seq_new.items[j] == a) {
@@ -388,12 +387,13 @@ pub fn test_1() !bool {
                 }
             }
 
-            var deleted = dict_new.fetchRemove(a).?;
-            var iterator = deleted.value.keyIterator();
+            var deleted = dict_new.fetchRemove(a);
+            var iterator = deleted.?.value.keyIterator();
             while (iterator.next()) |item| {
                 try dict_new.getPtr(b).?.put(item.*, {});
             }
-            deleted.value.deinit();
+            // deleted.value.deinit();
+            clearOptional(Map(i32, Set(i32)).KV, &deleted);
         }
     }
     return true;
@@ -475,8 +475,8 @@ pub fn main() !void {
     try init();
     defer deinit();
 
-    const start = std.time.nanoTimestamp();
-    try backtracking(25, 25);
-    const end = std.time.nanoTimestamp();
-    std.debug.print("time elapsed: {d} ns", .{end - start});
+    const start = std.time.milliTimestamp();
+    try backtracking(20, 20);
+    const end = std.time.milliTimestamp();
+    std.debug.print("time elapsed: {d} ms", .{end - start});
 }
