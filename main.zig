@@ -12,7 +12,7 @@ inline fn Set(comptime T: type) type {
 var arena: std.heap.ArenaAllocator = undefined;
 var allocator: Allocator = undefined;
 
-pub const length: i32 = 25;
+pub const length: i32 = 10;
 pub var c_cand: i32 = undefined;
 pub var p_cand: i32 = undefined;
 pub var tail: ArrayList(i32) = undefined;
@@ -47,9 +47,18 @@ fn cloneDict(src: Map(i32, Set(i32))) !Map(i32, Set(i32)) {
     return dest;
 }
 
+fn clearDict(src: *Map(i32, Set(i32))) void {
+    var it = src.valueIterator();
+    while (it.next()) |seq| {
+        seq.deinit();
+    }
+    src.deinit();
+}
+
 pub fn init() !void {
     arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    allocator = arena.allocator();
+    // allocator = arena.allocator();
+    allocator = std.testing.allocator;
 
     c_cand = 2;
     p_cand = 1;
@@ -91,14 +100,23 @@ pub fn deinit() void {
     max_lengths.deinit();
     change_indices.deinit();
 
-    var it = generators_mem.valueIterator();
+    var it1 = generators_mem.valueIterator();
     var it2 = dict.valueIterator();
-    var it3 = dicts_mem.valueIterator();
+    var it3 = dict_new.valueIterator();
+    var it4 = dicts_mem.valueIterator();
 
-    while (it.next()) |seq| seq.deinit();
+    while (it1.next()) |seq| seq.deinit();
     while (it2.next()) |seq2| seq2.deinit();
     while (it3.next()) |seq3| seq3.deinit();
+    while (it4.next()) |item| {
+        var it = item.valueIterator();
+        while (it.next()) |seq4| {
+            seq4.deinit();
+        }
+        item.deinit();
+    }
     generators_mem.deinit();
+    dict_new.deinit();
     dict.deinit();
     dicts_mem.deinit();
 
@@ -108,7 +126,6 @@ pub fn deinit() void {
     best_gens.deinit();
 
     seq_new.deinit();
-    dict_new.deinit();
 
     arena.deinit();
 }
@@ -201,10 +218,18 @@ pub fn up() !void {
                 c_cand = tail.pop();
                 p_cand = periods.pop() + 1;
 
+                generator.clearAndFree();
                 generator = try generators_mem.get(periods.items.len).?.clone();
+                clearDict(&dict);
                 dict = try cloneDict(dicts_mem.get(periods.items.len).?);
-                _ = generators_mem.remove(periods.items.len);
-                _ = dicts_mem.remove(periods.items.len);
+                var del = generators_mem.fetchRemove(periods.items.len);
+                if (del != null) {
+                    del.?.value.deinit();
+                }
+                var deleted = dicts_mem.fetchRemove(periods.items.len);
+                if (deleted != null) {
+                    clearDict(&(deleted.?.value));
+                }
             }
         }
     }
@@ -231,10 +256,17 @@ pub fn check_positive(len: i32) bool {
 }
 
 pub fn append() !void {
-    try generators_mem.put(periods.items.len, try generator.clone());
-    try dicts_mem.put(@intCast(periods.items.len), try cloneDict(dict));
+    var del = try generators_mem.fetchPut(periods.items.len, try generator.clone());
+    if (del != null) {
+        del.?.value.deinit();
+    }
+    var deleted = try dicts_mem.fetchPut(@intCast(periods.items.len), try cloneDict(dict));
+    if (deleted != null) {
+        clearDict(&(deleted.?.value));
+    }
     generator.clearAndFree();
     try generator.appendSlice(seq_new.items[0..length]);
+    clearDict(&dict);
     dict = try cloneDict(dict_new);
 
     if (dict.getPtr(c_cand) != null) {
@@ -246,8 +278,14 @@ pub fn append() !void {
 
         try set.put(@intCast(length + periods.items.len), {});
 
-        try dict.put(c_cand, try set.clone());
-        try dict_new.put(c_cand, try set.clone());
+        var removed = try dict.fetchPut(c_cand, try set.clone());
+        if (removed != null) {
+            removed.?.value.deinit();
+        }
+        removed = try dict_new.fetchPut(c_cand, try set.clone());
+        if (removed != null) {
+            removed.?.value.deinit();
+        }
     }
 
     try tail.append(c_cand);
@@ -255,7 +293,7 @@ pub fn append() !void {
 
     var curl: i32 = 1;
     var period: i32 = 0;
-    var temp: ArrayList(i32) = try generator.clone();
+    var temp = try generator.clone();
     defer temp.deinit();
 
     // try temp.append(c_cand);
@@ -281,8 +319,14 @@ pub fn append() !void {
 
             try set.put(@intCast(length + periods.items.len - 1), {});
 
-            try dict.put(curl, try set.clone());
-            try dict_new.put(curl, try set.clone());
+            var removed = try dict.fetchPut(curl, try set.clone());
+            if (removed != null) {
+                removed.?.value.deinit();
+            }
+            removed = try dict_new.fetchPut(curl, try set.clone());
+            if (removed != null) {
+                removed.?.value.deinit();
+            }
         }
     }
     c_cand = 2;
@@ -305,15 +349,17 @@ pub fn append() !void {
         defer tmp.deinit();
         try tmp.appendSlice(generator.items[generator.items.len - len ..]);
 
-        var deleted = best_gens.items[len - 1];
+        var removed = best_gens.items[len - 1];
         best_gens.items[len - 1] = try tmp.clone();
-        deleted.deinit();
+        removed.deinit();
     }
 }
 
 pub fn test_1() !bool {
+    seq_new.clearAndFree();
     seq_new = try generator.clone(); // deinited in deinit()
     try seq_new.appendSlice(tail.items);
+    clearDict(&dict_new);
     dict_new = try cloneDict(dict);
 
     const l: usize = seq_new.items.len;
@@ -432,6 +478,16 @@ pub fn main() !void {
 
     const start = std.time.nanoTimestamp();
     try backtracking(25, 25);
+    const end = std.time.nanoTimestamp();
+    std.debug.print("time elapsed: {d} ns", .{end - start});
+}
+
+test {
+    try init();
+    defer deinit();
+
+    const start = std.time.nanoTimestamp();
+    try backtracking(10, 10);
     const end = std.time.nanoTimestamp();
     std.debug.print("time elapsed: {d} ns", .{end - start});
 }
