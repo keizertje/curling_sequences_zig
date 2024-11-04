@@ -19,11 +19,11 @@ pub var max_lengths: ArrayList(usize) = undefined;
 pub var generators_mem: Map(usize, ArrayList(i32)) = undefined;
 pub var best_gens: ArrayList(ArrayList(i32)) = undefined;
 pub var change_indices: Set(usize) = undefined;
-pub var dict: Map(i32, Set(i32)) = undefined;
-pub var dicts_mem: Map(usize, Map(i32, Set(i32))) = undefined;
+// pub var dict: Map(i32, Set(i32)) = undefined;
+// pub var dicts_mem: Map(usize, Map(i32, Set(i32))) = undefined;
 
 pub var seq_new: ArrayList(i32) = undefined;
-pub var dict_new: Map(i32, Set(i32)) = undefined;
+// pub var dict_new: Map(i32, Set(i32)) = undefined;
 
 // following function is for copying a Map(i32, Set(i32)), that is, not only the map itself (map.clone()), but also its values (the sets)
 fn cloneDict(src: Map(i32, Set(i32))) !Map(i32, Set(i32)) {
@@ -70,11 +70,11 @@ pub fn init() !void {
     generators_mem = Map(usize, ArrayList(i32)).init(allocator); // a map in which the keys are all the places in tail which are not in exactly and in which the values are the corresponding generators.
     best_gens = ArrayList(ArrayList(i32)).init(allocator); // for each i, the value of best_gens is the set of all generators with length i+1 which yield the record value.
     change_indices = Set(usize).init(allocator); // places in the tail where the generator was changed
-    dict = Map(i32, Set(i32)).init(allocator); // At key k, dict has as value the list of numbers i such that exp_seq[i]=k, where exp_seq = generator + tail.
-    dicts_mem = Map(usize, Map(i32, Set(i32))).init(allocator); //  a map of maps corresponding to the generators in generators_mem
+    // dict = Map(i32, Set(i32)).init(allocator); // At key k, dict has as value the list of numbers i such that exp_seq[i]=k, where exp_seq = generator + tail.
+    // dicts_mem = Map(usize, Map(i32, Set(i32))).init(allocator); //  a map of maps corresponding to the generators in generators_mem
 
     seq_new = ArrayList(i32).init(allocator);
-    dict_new = Map(i32, Set(i32)).init(allocator);
+    // dict_new = Map(i32, Set(i32)).init(allocator);
 
     // creating default values
     try change_indices.put(0, {});
@@ -87,8 +87,8 @@ pub fn init() !void {
         defer set.deinit();
         try set.put(@as(i32, @intCast(i)), {});
 
-        try generator.append(-@as(i32, @intCast(i)));
-        try dict.put(-@as(i32, @intCast(i)), try set.clone());
+        try generator.append(-length + @as(i32, @intCast(i))); // type?
+        // try dict.put(-@as(i32, @intCast(i)), try set.clone());
         try max_lengths.append(0);
         try best_gens.append(try empty_gen.clone());
     }
@@ -106,16 +106,16 @@ pub fn deinit() void {
     change_indices.deinit();
     seq_new.deinit();
 
-    clearDict(Map(i32, Set(i32)), &dict);
-    clearDict(Map(i32, Set(i32)), &dict_new);
+    // clearDict(Map(i32, Set(i32)), &dict);
+    // clearDict(Map(i32, Set(i32)), &dict_new);
     clearDict(Map(usize, ArrayList(i32)), &generators_mem);
 
     // dicts_mem: Map(usize, Map(i32, Set(i32)))
-    var it = dicts_mem.valueIterator();
-    while (it.next()) |item| {
-        clearDict(Map(i32, Set(i32)), item); // first every inner Map is deallocated...
-    }
-    dicts_mem.deinit(); // then also the outer one
+    // var it = dicts_mem.valueIterator();
+    // while (it.next()) |item| {
+    //     clearDict(Map(i32, Set(i32)), item); // first every inner Map is deallocated...
+    // }
+    // dicts_mem.deinit(); // then also the outer one
 
     for (best_gens.items) |sequence| {
         sequence.deinit();
@@ -213,7 +213,7 @@ pub fn up() !void {
             }
             if (change_indices.get(periods.items.len - 1) == null) {
                 try change_indices.put(periods.items.len - 1, {});
-                _ = dict.getPtr(tail.getLast()).?.remove(@as(i32, @intCast(length + tail.items.len - 1)));
+                // _ = dict.getPtr(tail.getLast()).?.remove(@as(i32, @intCast(length + tail.items.len - 1)));
                 c_cand = tail.pop() + 1;
                 p_cand = 1;
                 _ = periods.pop();
@@ -224,17 +224,14 @@ pub fn up() !void {
                 generator.clearAndFree(); // future optimalization
                 generator = try generators_mem.get(periods.items.len).?.clone();
 
-                clearDict(Map(i32, Set(i32)), &dict);
-                dict = try cloneDict(dicts_mem.get(periods.items.len).?);
+                // clearDict(Map(i32, Set(i32)), &dict);
+                // dict = try cloneDict(dicts_mem.get(periods.items.len).?);
                 var del = generators_mem.fetchRemove(periods.items.len); // remove the generator at index periods.items.len and return it
-                //if (del != null) {
-                //    del.?.value.deinit();
-                //}
                 clearOptional(Map(usize, ArrayList(i32)).KV, &del);
-                var deleted = dicts_mem.fetchRemove(periods.items.len); // remove the dict at index periods.items.len and return it
-                if (deleted != null) {
-                    clearDict(Map(i32, Set(i32)), &(deleted.?.value));
-                }
+                // var deleted = dicts_mem.fetchRemove(periods.items.len); // remove the dict at index periods.items.len and return it
+                // if (deleted != null) {
+                //     clearDict(Map(i32, Set(i32)), &(deleted.?.value));
+                // }
             }
         }
     }
@@ -243,7 +240,7 @@ pub fn up() !void {
 // returns the smallest length of a suffix of generator which gives the same tail
 pub fn real_gen_len() usize {
     var i: usize = 0;
-    loop: while (dict.getPtr(generator.items[i]).?.count() == 1) {
+    loop: while (generator.items[i] == (-length + @as(i32, @intCast(i)))) { // typeError expected
         i += 1;
         if (i == length) {
             break :loop;
@@ -274,30 +271,30 @@ pub fn append() !void {
     var del = try generators_mem.fetchPut(periods.items.len, try generator.clone()); // set index periods.items.len to (the current) generator
     clearOptional(Map(usize, ArrayList(i32)).KV, &del); // and return previous value, if there was something at that index
 
-    var deleted = try dicts_mem.fetchPut(@intCast(periods.items.len), try cloneDict(dict));
-    if (deleted != null) {
-        clearDict(Map(i32, Set(i32)), &(deleted.?.value));
-    }
+    // var deleted = try dicts_mem.fetchPut(@intCast(periods.items.len), try cloneDict(dict));
+    // if (deleted != null) {
+    //     clearDict(Map(i32, Set(i32)), &(deleted.?.value));
+    // }
 
     generator.clearAndFree(); // future optimalization
     try generator.appendSlice(seq_new.items[0..length]);
-    clearDict(Map(i32, Set(i32)), &dict);
-    dict = try cloneDict(dict_new);
+    // clearDict(Map(i32, Set(i32)), &dict);
+    // dict = try cloneDict(dict_new);
 
-    if (dict.getPtr(c_cand) != null) {
-        try dict.getPtr(c_cand).?.put(@intCast(length + periods.items.len), {});
-        try dict_new.getPtr(c_cand).?.put(@intCast(length + periods.items.len), {});
-    } else {
-        var set: Set(i32) = Set(i32).init(allocator);
-        defer set.deinit();
+    // if (dict.getPtr(c_cand) != null) {
+    //     try dict.getPtr(c_cand).?.put(@intCast(length + periods.items.len), {});
+    //     try dict_new.getPtr(c_cand).?.put(@intCast(length + periods.items.len), {});
+    // } else {
+    //     var set: Set(i32) = Set(i32).init(allocator);
+    //     defer set.deinit();
 
-        try set.put(@intCast(length + periods.items.len), {});
+    //     try set.put(@intCast(length + periods.items.len), {});
 
-        var removed = try dict.fetchPut(c_cand, try set.clone()); // set index c_cand to set.clone and return previous value if there was something at that index
-        clearOptional(Map(i32, Set(i32)).KV, &removed);
-        removed = try dict_new.fetchPut(c_cand, try set.clone()); // set index c_cand to set.clone and return previous value if there was something at that index
-        clearOptional(Map(i32, Set(i32)).KV, &removed);
-    }
+    //     var removed = try dict.fetchPut(c_cand, try set.clone()); // set index c_cand to set.clone and return previous value if there was something at that index
+    //     clearOptional(Map(i32, Set(i32)).KV, &removed);
+    //     removed = try dict_new.fetchPut(c_cand, try set.clone()); // set index c_cand to set.clone and return previous value if there was something at that index
+    //     clearOptional(Map(i32, Set(i32)).KV, &removed);
+    // }
 
     try tail.append(c_cand);
     try periods.append(p_cand);
@@ -321,20 +318,20 @@ pub fn append() !void {
         try temp.append(curl);
         try periods.append(period);
 
-        if (dict.getPtr(curl) != null) {
-            try dict.getPtr(curl).?.put(@intCast(length + periods.items.len - 1), {});
-            try dict_new.getPtr(curl).?.put(@intCast(length + periods.items.len - 1), {});
-        } else {
-            var set: Set(i32) = Set(i32).init(allocator);
-            defer set.deinit();
+        // if (dict.getPtr(curl) != null) {
+        //     try dict.getPtr(curl).?.put(@intCast(length + periods.items.len - 1), {});
+        //     try dict_new.getPtr(curl).?.put(@intCast(length + periods.items.len - 1), {});
+        // } else {
+        //     var set: Set(i32) = Set(i32).init(allocator);
+        //     defer set.deinit();
 
-            try set.put(@intCast(length + periods.items.len - 1), {});
+        //     try set.put(@intCast(length + periods.items.len - 1), {});
 
-            var removed = try dict.fetchPut(curl, try set.clone()); // set index curl to set.clone and return previous value if there was something at that index
-            clearOptional(Map(i32, Set(i32)).KV, &removed);
-            removed = try dict_new.fetchPut(curl, try set.clone()); // set index curl to set.clone and return previous value if there was something at that index
-            clearOptional(Map(i32, Set(i32)).KV, &removed);
-        }
+        //     var removed = try dict.fetchPut(curl, try set.clone()); // set index curl to set.clone and return previous value if there was something at that index
+        //     clearOptional(Map(i32, Set(i32)).KV, &removed);
+        //     removed = try dict_new.fetchPut(curl, try set.clone()); // set index curl to set.clone and return previous value if there was something at that index
+        //     clearOptional(Map(i32, Set(i32)).KV, &removed);
+        // }
     }
 
     c_cand = 2;
@@ -355,7 +352,7 @@ pub fn append() !void {
     if (max_lengths.items[len - 1] < periods.items.len) {
         max_lengths.items[len - 1] = periods.items.len;
 
-        var tmp: ArrayList(i32) = ArrayList(i32).init(allocator);
+        var tmp = ArrayList(i32).init(allocator);
         defer tmp.deinit();
         try tmp.appendSlice(generator.items[generator.items.len - len ..]);
 
@@ -372,9 +369,10 @@ pub fn test_1() !bool {
     seq_new.clearAndFree(); // future optimalization
     seq_new = try generator.clone(); // deinited in deinit()
     try seq_new.appendSlice(tail.items);
-    clearDict(Map(i32, Set(i32)), &dict_new);
-    dict_new = try cloneDict(dict);
+    // clearDict(Map(i32, Set(i32)), &dict_new);
+    // dict_new = try cloneDict(dict);
 
+    const k: usize = generator.items.len;
     const l: usize = seq_new.items.len;
     for (0..@intCast((c_cand - 1) * p_cand)) |i| {
         const a: i32 = seq_new.items[l - 1 - i];
@@ -383,31 +381,31 @@ pub fn test_1() !bool {
             return false; // fail
         }
         if (a > b) {
-            for (0..l) |j| {
+            for (0..k) |j| {
                 if (seq_new.items[j] == b) {
                     seq_new.items[j] = a;
                 }
             }
 
-            var deleted = dict_new.fetchRemove(b); // remove the set at index b and return it
-            var iterator = deleted.?.value.keyIterator();
-            while (iterator.next()) |item| {
-                try dict_new.getPtr(a).?.put(item.*, {});
-            }
-            clearOptional(Map(i32, Set(i32)).KV, &deleted);
+            // var deleted = dict_new.fetchRemove(b); // remove the set at index b and return it
+            // var iterator = deleted.?.value.keyIterator();
+            // while (iterator.next()) |item| {
+            //     try dict_new.getPtr(a).?.put(item.*, {});
+            // }
+            // clearOptional(Map(i32, Set(i32)).KV, &deleted);
         } else if (b > a) {
-            for (0..l) |j| {
+            for (0..k) |j| {
                 if (seq_new.items[j] == a) {
                     seq_new.items[j] = b;
                 }
             }
 
-            var deleted = dict_new.fetchRemove(a); // remove the set at index a and return it
-            var iterator = deleted.?.value.keyIterator();
-            while (iterator.next()) |item| {
-                try dict_new.getPtr(b).?.put(item.*, {});
-            }
-            clearOptional(Map(i32, Set(i32)).KV, &deleted);
+            // var deleted = dict_new.fetchRemove(a); // remove the set at index a and return it
+            // var iterator = deleted.?.value.keyIterator();
+            // while (iterator.next()) |item| {
+            //     try dict_new.getPtr(b).?.put(item.*, {});
+            // }
+            // clearOptional(Map(i32, Set(i32)).KV, &deleted);
         }
     }
     return true;
