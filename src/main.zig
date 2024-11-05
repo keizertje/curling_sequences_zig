@@ -56,34 +56,37 @@ fn clearOptional(comptime T: type, value: *?T) void {
     }
 }
 
-pub fn init() !void {
+fn initAllocator() void {
     arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     allocator = arena.allocator();
+}
+
+pub fn init(alloc: std.mem.Allocator) !void {
 
     // init data structures
     c_cand = 2; // the curling number which we will test next; if it works, we will append it to tail.
     p_cand = 1; // the period which we will test next; if it works, we will append it to periods.
-    tail = ArrayList(i32).init(allocator); // tail has zero or more elements, and all its elements are integers larger than 1
-    periods = ArrayList(i32).init(allocator); // The size of periods always equals the size of tail, and in contains the periods corresponding to the elements of tail.
-    generator = ArrayList(i32).init(allocator); // generator always has length elements which are integers
-    max_lengths = ArrayList(usize).init(allocator); // at i, the value of max_lengths is the largest (official) tail length of a string with length i+1.
-    generators_mem = Map(usize, ArrayList(i32)).init(allocator); // a map in which the keys are all the places in tail which are not in exactly and in which the values are the corresponding generators.
-    best_gens = ArrayList(ArrayList(i32)).init(allocator); // for each i, the value of best_gens is the set of all generators with length i+1 which yield the record value.
-    change_indices = Set(usize).init(allocator); // places in the tail where the generator was changed
-    // dict = Map(i32, Set(i32)).init(allocator); // At key k, dict has as value the list of numbers i such that exp_seq[i]=k, where exp_seq = generator + tail.
-    // dicts_mem = Map(usize, Map(i32, Set(i32))).init(allocator); //  a map of maps corresponding to the generators in generators_mem
+    tail = ArrayList(i32).init(alloc); // tail has zero or more elements, and all its elements are integers larger than 1
+    periods = ArrayList(i32).init(alloc); // The size of periods always equals the size of tail, and in contains the periods corresponding to the elements of tail.
+    generator = ArrayList(i32).init(alloc); // generator always has length elements which are integers
+    max_lengths = ArrayList(usize).init(alloc); // at i, the value of max_lengths is the largest (official) tail length of a string with length i+1.
+    generators_mem = Map(usize, ArrayList(i32)).init(alloc); // a map in which the keys are all the places in tail which are not in exactly and in which the values are the corresponding generators.
+    best_gens = ArrayList(ArrayList(i32)).init(alloc); // for each i, the value of best_gens is the set of all generators with length i+1 which yield the record value.
+    change_indices = Set(usize).init(alloc); // places in the tail where the generator was changed
+    // dict = Map(i32, Set(i32)).init(alloc); // At key k, dict has as value the list of numbers i such that exp_seq[i]=k, where exp_seq = generator + tail.
+    // dicts_mem = Map(usize, Map(i32, Set(i32))).init(alloc); //  a map of maps corresponding to the generators in generators_mem
 
-    seq_new = ArrayList(i32).init(allocator);
-    // dict_new = Map(i32, Set(i32)).init(allocator);
+    seq_new = ArrayList(i32).init(alloc);
+    // dict_new = Map(i32, Set(i32)).init(alloc);
 
     // creating default values
     try change_indices.put(0, {});
 
-    var empty_gen: ArrayList(i32) = ArrayList(i32).init(allocator);
+    var empty_gen: ArrayList(i32) = ArrayList(i32).init(alloc);
     defer empty_gen.deinit();
 
     for (0..length) |i| {
-        var set: Set(i32) = Set(i32).init(allocator);
+        var set: Set(i32) = Set(i32).init(alloc);
         defer set.deinit();
         try set.put(@as(i32, @intCast(i)), {});
 
@@ -449,8 +452,25 @@ pub fn check_if_period_works() !bool {
     return false;
 }
 
+var last_capacity: usize = 0;
+
 // one step in the backtracking algorithm
 pub fn backtracking_step() !void {
+    // var best_gens_sum: usize = 0;
+    // for (best_gens.items) |seq| {
+    //     best_gens_sum += seq.items.len;
+    // }
+    // var generators_mem_sum: usize = 0;
+    // var it = generators_mem.iterator();
+    // while (it.next()) |entry| {
+    //     generators_mem_sum += entry.value_ptr.items.len;
+    // }
+    // std.debug.print("{d}\t{d}\t{d}\t{d}\t{d}\t{d}\t{d}\t{d}\n", .{ tail.items.len, periods.items.len, generator.items.len, max_lengths.items.len, generators_mem_sum, change_indices.count(), best_gens_sum, seq_new.items.len });
+    const capacity = arena.queryCapacity();
+    if (capacity != last_capacity) {
+        last_capacity = capacity;
+        std.debug.print("{d}\n", .{capacity});
+    }
     if (try check_if_period_works()) {
         try append();
     } else {
@@ -494,11 +514,21 @@ pub fn main() !void {
     // const stdin = std.io.getStdIn().reader();
     // try stdout.print("Hello, {s}!\n", .{"world"});
 
-    try init();
+    initAllocator();
+
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    allocator = gpa.allocator();
+    defer {
+        const deinit_status = gpa.deinit();
+        //fail test; can't try in defer as defer is executed after we return
+        if (deinit_status == .leak) std.testing.expect(false) catch @panic("TEST FAIL");
+    }
+
+    try init(allocator);
     defer deinit();
 
     const start = std.time.milliTimestamp();
     try backtracking(1000, 1000);
     const end = std.time.milliTimestamp();
-    std.debug.print("time elapsed: {d} ms", .{end - start});
+    std.debug.print("time elapsed: {d} ms\n", .{end - start});
 }

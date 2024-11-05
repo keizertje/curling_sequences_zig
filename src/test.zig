@@ -259,13 +259,12 @@ test "tail_with_periods_part" {
 }
 
 test "complete story" {
-    try Main.init();
+    Main.allocator = std.testing.allocator;
+    try Main.init(Main.allocator);
     defer Main.deinit();
 
-    Main.allocator = std.testing.allocator;
-
-    const start = std.time.nanoTimestamp();
+    const start = std.time.milliTimestamp();
     try Main.backtracking(10, 10);
-    const end = std.time.nanoTimestamp();
-    std.debug.print("time elapsed: {d} ns", .{end - start});
+    const end = std.time.milliTimestamp();
+    std.debug.print("time elapsed: {d} ms\n", .{end - start});
 }
