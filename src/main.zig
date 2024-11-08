@@ -1,4 +1,6 @@
 const std = @import("std");
+const rpmalloc = @import("rpmalloc");
+const RP = rpmalloc.RPMalloc(.{});
 const ArrayList = std.ArrayList; // c++ equivalent: std::vector<>
 const Map = std.AutoHashMap; // c++ equivalent: std::map<>
 inline fn Set(comptime T: type) type { // c++ equivalent: std::set<>
@@ -9,7 +11,7 @@ var arena: std.heap.ArenaAllocator = undefined;
 pub var allocator: std.mem.Allocator = undefined;
 
 // see init() for comments on this variables
-pub const length: i32 = 20; // max length of generators to consider
+pub const length: i32 = 80; // max length of generators to consider
 pub var c_cand: i32 = undefined;
 pub var p_cand: i32 = undefined;
 pub var tail: ArrayList(i32) = undefined;
@@ -514,15 +516,27 @@ pub fn main() !void {
     // const stdin = std.io.getStdIn().reader();
     // try stdout.print("Hello, {s}!\n", .{"world"});
 
-    initAllocator();
+    //    initAllocator();
+    //
+    //    // var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    //    // allocator = gpa.allocator();
+    //    // defer {
+    //    //     const deinit_status = gpa.deinit();
+    //    //     //fail test; can't try in defer as defer is executed after we return
+    //    //     if (deinit_status == .leak) std.testing.expect(false) catch @panic("TEST FAIL");
+    //    // }
+    //    // try init(allocator);
+    //    // defer deinit();
+    //
+    //    allocator = std.heap.c_allocator;
+    //
+    //    try init(std.heap.c_allocator);
+    //    defer deinit();
 
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    allocator = gpa.allocator();
-    defer {
-        const deinit_status = gpa.deinit();
-        //fail test; can't try in defer as defer is executed after we return
-        if (deinit_status == .leak) std.testing.expect(false) catch @panic("TEST FAIL");
-    }
+    try RP.init(null, .{});
+    defer RP.deinit();
+
+    allocator = RP.allocator();
 
     try init(allocator);
     defer deinit();
