@@ -36,9 +36,8 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
-    // This adds the allocator/rpmalloc-zig-port/ directory as a module, making it importable in the files in /src under the name rpmalloc
-    const rpmalloc = b.addModule("rpmalloc", .{ .root_source_file = b.path("externals/rpmalloc-zig-port/src/rpmalloc.zig") });
-    exe.root_module.addImport("rpmalloc", rpmalloc);
+    const jdz_allocator = b.addModule("jdz_allocator", .{ .root_source_file = b.path("externals/jdz_allocator/src/jdz_allocator.zig") });
+    exe.root_module.addImport("jdz_allocator", jdz_allocator);
 
     // This declares intent for the executable to be installed into the
     // standard location when the user invokes the "install" step (the default

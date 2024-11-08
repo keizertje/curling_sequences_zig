@@ -1,6 +1,5 @@
 const std = @import("std");
-const rpmalloc = @import("rpmalloc");
-const RP = rpmalloc.RPMalloc(.{});
+const jdz_allocator = @import("jdz_allocator");
 const ArrayList = std.ArrayList; // c++ equivalent: std::vector<>
 const Map = std.AutoHashMap; // c++ equivalent: std::map<>
 inline fn Set(comptime T: type) type { // c++ equivalent: std::set<>
@@ -533,10 +532,10 @@ pub fn main() !void {
     //    try init(std.heap.c_allocator);
     //    defer deinit();
 
-    try RP.init(null, .{});
-    defer RP.deinit();
+    var jdz = jdz_allocator.JdzAllocator(.{}).init();
+    defer jdz.deinit();
 
-    allocator = RP.allocator();
+    allocator = jdz.allocator();
 
     try init(allocator);
     defer deinit();

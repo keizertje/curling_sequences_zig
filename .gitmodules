@@ -1,3 +1,6 @@
 [submodule "externals/rpmalloc-zig-port"]
 	path = externals/rpmalloc-zig-port
 	url = https://github.com/InKryption/rpmalloc-zig-port.git
+[submodule "externals/jdz_allocator"]
+	path = externals/jdz_allocator
+	url = https://github.com/joadnacer/jdz_allocator.git
