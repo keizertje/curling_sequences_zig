@@ -6,11 +6,11 @@ inline fn Set(comptime T: type) type { // c++ equivalent: std::set<>
     return Map(T, void);
 }
 
-var arena: std.heap.ArenaAllocator = undefined;
+// var arena: std.heap.ArenaAllocator = undefined;
 pub var allocator: std.mem.Allocator = undefined;
 
 // see init() for comments on this variables
-pub const length: i32 = 80; // max length of generators to consider
+pub const length: i32 = 40; // max length of generators to consider
 pub var c_cand: i32 = undefined;
 pub var p_cand: i32 = undefined;
 pub var tail: ArrayList(i32) = undefined;
@@ -57,10 +57,10 @@ fn clearOptional(comptime T: type, value: *?T) void {
     }
 }
 
-fn initAllocator() void {
-    arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    allocator = arena.allocator();
-}
+// fn initAllocator() void {
+//     arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+//     allocator = arena.allocator();
+// }
 
 pub fn init(alloc: std.mem.Allocator) !void {
 
@@ -126,7 +126,7 @@ pub fn deinit() void {
     }
     best_gens.deinit();
 
-    arena.deinit();
+    // arena.deinit();
 }
 
 // seq is an arraylist with arbitrary i32 integers, returns the curling number of that list
@@ -467,11 +467,11 @@ pub fn backtracking_step() !void {
     //     generators_mem_sum += entry.value_ptr.items.len;
     // }
     // std.debug.print("{d}\t{d}\t{d}\t{d}\t{d}\t{d}\t{d}\t{d}\n", .{ tail.items.len, periods.items.len, generator.items.len, max_lengths.items.len, generators_mem_sum, change_indices.count(), best_gens_sum, seq_new.items.len });
-    const capacity = arena.queryCapacity();
-    if (capacity != last_capacity) {
-        last_capacity = capacity;
-        std.debug.print("{d}\n", .{capacity});
-    }
+    // const capacity = arena.queryCapacity();
+    // if (capacity != last_capacity) {
+    //     last_capacity = capacity;
+    //     std.debug.print("{d}\n", .{capacity});
+    // }
     if (try check_if_period_works()) {
         try append();
     } else {

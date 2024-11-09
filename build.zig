@@ -36,8 +36,14 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
-    const jdz_allocator = b.addModule("jdz_allocator", .{ .root_source_file = b.path("externals/jdz_allocator/src/jdz_allocator.zig") });
-    exe.root_module.addImport("jdz_allocator", jdz_allocator);
+    // const jdz_allocator = b.addModule("jdz_allocator", .{ .root_source_file = b.path("externals/jdz_allocator/src/jdz_allocator.zig") });
+    // exe.root_module.addImport("jdz_allocator", jdz_allocator);
+    const jdz_allocator = b.dependency("jdz_allocator", .{
+        .target = target,
+        .optimize = optimize,
+    });
+
+    exe.root_module.addImport("jdz_allocator", jdz_allocator.module("jdz_allocator"));
 
     // This declares intent for the executable to be installed into the
     // standard location when the user invokes the "install" step (the default
