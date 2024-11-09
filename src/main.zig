@@ -532,10 +532,16 @@ pub fn main() !void {
     //    try init(std.heap.c_allocator);
     //    defer deinit();
 
-    var jdz = jdz_allocator.JdzAllocator(.{}).init();
-    defer jdz.deinit();
+    // var jdz = jdz_allocator.JdzAllocator(.{}).init();
+    // defer jdz.deinit();
 
-    allocator = jdz.allocator();
+    // allocator = jdz.allocator();
+
+    const JdzGlobalAllocator = jdz_allocator.JdzGlobalAllocator(.{});
+    defer JdzGlobalAllocator.deinit();
+    defer JdzGlobalAllocator.deinitThread(); // call this from every thread that makes an allocation
+
+    allocator = JdzGlobalAllocator.allocator();
 
     try init(allocator);
     defer deinit();
