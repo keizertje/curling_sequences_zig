@@ -1,6 +1,8 @@
 const std = @import("std");
 const jdz_allocator = @import("jdz_allocator");
+const JdzGlobalAllocator = jdz_allocator.JdzGlobalAllocator(.{});
 const ArrayList = std.ArrayList; // c++ equivalent: std::vector<>
+const Mutex = std.Thread.Mutex;
 const Map = std.AutoHashMap; // c++ equivalent: std::map<>
 inline fn Set(comptime T: type) type { // c++ equivalent: std::set<>
     return Map(T, void);
@@ -10,21 +12,23 @@ inline fn Set(comptime T: type) type { // c++ equivalent: std::set<>
 pub var allocator: std.mem.Allocator = undefined;
 
 // see init() for comments on this variables
-pub const length: i32 = 40; // max length of generators to consider
-pub var c_cand: i32 = undefined;
-pub var p_cand: i32 = undefined;
-pub var tail: ArrayList(i32) = undefined;
-pub var periods: ArrayList(i32) = undefined;
-pub var generator: ArrayList(i32) = undefined;
-pub var max_lengths: ArrayList(usize) = undefined;
-pub var generators_mem: Map(usize, ArrayList(i32)) = undefined;
-pub var best_gens: ArrayList(ArrayList(i32)) = undefined;
-pub var change_indices: Set(usize) = undefined;
-// pub var dict: Map(i32, Set(i32)) = undefined;
-// pub var dicts_mem: Map(usize, Map(i32, Set(i32))) = undefined;
+pub const length: i32 = 100; // max length of generators to consider
 
-pub var seq_new: ArrayList(i32) = undefined;
-// pub var dict_new: Map(i32, Set(i32)) = undefined;
+threadlocal var c_cand: i32 = undefined;
+threadlocal var p_cand: i32 = undefined;
+threadlocal var tail: ArrayList(i32) = undefined;
+threadlocal var periods: ArrayList(i32) = undefined;
+threadlocal var generator: ArrayList(i32) = undefined;
+threadlocal var generators_mem: Map(usize, ArrayList(i32)) = undefined;
+threadlocal var change_indices: Set(usize) = undefined;
+threadlocal var seq_new: ArrayList(i32) = undefined;
+threadlocal var best_gens: ArrayList(ArrayList(i32)) = undefined;
+threadlocal var max_lengths: ArrayList(usize) = undefined;
+
+pub var global_max_lengths: ArrayList(usize) = undefined;
+pub var global_best_gens: ArrayList(ArrayList(i32)) = undefined;
+
+pub var mutex: Mutex = undefined;
 
 // following function is for copying a Map(i32, Set(i32)), that is, not only the map itself (map.clone()), but also its values (the sets)
 fn cloneDict(src: Map(i32, Set(i32))) !Map(i32, Set(i32)) {
@@ -480,7 +484,9 @@ pub fn backtracking_step() !void {
 }
 
 // for default behavior enter k2=1000,p2=1000
-pub fn backtracking(k2: i32, p2: i32) !void {
+pub fn backtracking(k1: i32, p1: i32, k2: i32, p2: i32) void {
+    defer JdzGlobalAllocator.deinitThread(); // call this from every thread that makes an allocation
+
     // generator, tail are the lists we are currently studying. They are not in the memory.
     // If we append and move on to new generator/longer tail, then we put the old generator in the memory.
     // If we up() and the tail length remains the same, then Generator is changed and the memory remains the same.
@@ -489,24 +495,63 @@ pub fn backtracking(k2: i32, p2: i32) !void {
     // the last entry of generators_mem, which is also deleted from the memory.
     // Since we have one universal tail and also one universal periods, these never need to be in the memory.
 
+    c_cand = k1;
+    p_cand = p1;
+
+    init(allocator) catch @panic("error");
+    defer deinit();
+
+    const t1 = std.time.milliTimestamp();
     loop: while (c_cand != 0) {
         if (tail.items.len == 0 and c_cand == k2 and p_cand == p2) {
             break :loop;
         }
-        try backtracking_step();
+        backtracking_step() catch @panic("error");
     }
+    const t2 = std.time.milliTimestamp();
 
-    var record: usize = 0;
+    mutex.lock();
     for (0..length) |i| {
-        if (max_lengths.items[i] > record) {
-            record = max_lengths.items[i];
-            std.debug.print("{d}: {d}, [", .{ i + 1, record });
-            for (best_gens.items[i].items) |item| {
-                std.debug.print("{d}, ", .{item});
-            }
-            std.debug.print("]\n", .{});
+        if (max_lengths.items[i] > global_max_lengths.items[i]) {
+            global_max_lengths.items[i] = max_lengths.items[i];
+            global_best_gens.items[i] = best_gens.items[i].clone() catch @panic("error");
         }
     }
+    mutex.unlock();
+
+    // var record: usize = 0;
+    // for (0..length) |i| {
+    //     if (max_lengths.items[i] > record) {
+    //         record = max_lengths.items[i];
+    //         std.debug.print("{d}: {d}, [", .{ i + 1, record });
+    //         for (best_gens.items[i].items) |item| {
+    //             std.debug.print("{d}, ", .{item});
+    //         }
+    //         std.debug.print("]\n", .{});
+    //     }
+    // }
+
+    std.debug.print("finished {d}, {d}, {d}, {d}, duration: {d}\n", .{ k1, p1, k2, p2, t2 - t1 });
+}
+
+pub fn multi_threader() !void {
+    var wait_group: std.Thread.WaitGroup = undefined;
+    wait_group.reset();
+
+    var pool: std.Thread.Pool = undefined;
+    try pool.init(.{ .allocator = allocator });
+    defer pool.deinit();
+
+    try pool.spawn(backtracking, .{ 2, 1, 2, 3 });
+    try pool.spawn(backtracking, .{ 2, 3, 2, 7 });
+    try pool.spawn(backtracking, .{ 2, 7, 2, 24 });
+    try pool.spawn(backtracking, .{ 2, 24, 2, 40 });
+    try pool.spawn(backtracking, .{ 2, 40, 3, 3 });
+    try pool.spawn(backtracking, .{ 3, 3, 3, 24 });
+    try pool.spawn(backtracking, .{ 3, 24, 5, 1 });
+    try pool.spawn(backtracking, .{ 5, 1, 1000, 1000 });
+
+    pool.waitAndWork(&wait_group);
 }
 
 pub fn main() !void {
@@ -537,17 +582,36 @@ pub fn main() !void {
 
     // allocator = jdz.allocator();
 
-    const JdzGlobalAllocator = jdz_allocator.JdzGlobalAllocator(.{});
     defer JdzGlobalAllocator.deinit();
     defer JdzGlobalAllocator.deinitThread(); // call this from every thread that makes an allocation
 
     allocator = JdzGlobalAllocator.allocator();
 
-    try init(allocator);
-    defer deinit();
+    global_best_gens = ArrayList(ArrayList(i32)).init(allocator);
+    global_max_lengths = ArrayList(usize).init(allocator);
+
+    var empty_seq = ArrayList(i32).init(allocator);
+    defer empty_seq.deinit();
+    for (0..length) |_| {
+        try global_max_lengths.append(0);
+        try global_best_gens.append(try empty_seq.clone());
+    }
 
     const start = std.time.milliTimestamp();
-    try backtracking(1000, 1000);
+    try multi_threader();
     const end = std.time.milliTimestamp();
+
+    var record: usize = 0;
+    for (0..length) |i| {
+        if (global_max_lengths.items[i] > record) {
+            record = global_max_lengths.items[i];
+            std.debug.print("{d}: {d}, [", .{ i + 1, record });
+            for (global_best_gens.items[i].items) |item| {
+                std.debug.print("{d}, ", .{item});
+            }
+            std.debug.print("]\n", .{});
+        }
+    }
+
     std.debug.print("time elapsed: {d} ms\n", .{end - start});
 }
