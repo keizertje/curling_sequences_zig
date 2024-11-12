@@ -11,31 +11,34 @@ inline fn Set(comptime T: type) type { // c++ equivalent: std::set<>
 // var arena: std.heap.ArenaAllocator = undefined;
 pub var allocator: std.mem.Allocator = undefined;
 
-// see init() for comments on this variables
-pub const length: i32 = 100; // max length of generators to consider
+const Value = i16;
+const Sequence = ArrayList(Value);
 
-threadlocal var c_cand: i32 = undefined;
-threadlocal var p_cand: i32 = undefined;
-threadlocal var tail: ArrayList(i32) = undefined;
-threadlocal var periods: ArrayList(i32) = undefined;
-threadlocal var generator: ArrayList(i32) = undefined;
-threadlocal var generators_mem: Map(usize, ArrayList(i32)) = undefined;
+// see init() for comments on this variables
+pub const length: Value = 60; // max length of generators to consider
+
+threadlocal var c_cand: Value = undefined;
+threadlocal var p_cand: Value = undefined;
+threadlocal var tail: Sequence = undefined;
+threadlocal var periods: Sequence = undefined;
+threadlocal var generator: Sequence = undefined;
+threadlocal var generators_mem: Map(usize, Sequence) = undefined;
 threadlocal var change_indices: Set(usize) = undefined;
-threadlocal var seq_new: ArrayList(i32) = undefined;
-threadlocal var best_gens: ArrayList(ArrayList(i32)) = undefined;
+threadlocal var seq_new: Sequence = undefined;
+threadlocal var best_gens: ArrayList(Sequence) = undefined;
 threadlocal var max_lengths: ArrayList(usize) = undefined;
 
 pub var global_max_lengths: ArrayList(usize) = undefined;
-pub var global_best_gens: ArrayList(ArrayList(i32)) = undefined;
+pub var global_best_gens: ArrayList(Sequence) = undefined;
 
 pub var mutex: Mutex = undefined;
 
-// following function is for copying a Map(i32, Set(i32)), that is, not only the map itself (map.clone()), but also its values (the sets)
-fn cloneDict(src: Map(i32, Set(i32))) !Map(i32, Set(i32)) {
-    var dest = Map(i32, Set(i32)).init(src.allocator);
+// following function is for copying a Map(Value, Set(Value)), that is, not only the map itself (map.clone()), but also its values (the sets)
+fn cloneDict(src: Map(Value, Set(Value))) !Map(Value, Set(Value)) {
+    var dest = Map(Value, Set(Value)).init(src.allocator);
     var it = src.iterator();
     while (it.next()) |entry| {
-        var set = Set(i32).init(dest.allocator);
+        var set = Set(Value).init(dest.allocator);
         var value_it = entry.value_ptr.keyIterator();
         while (value_it.next()) |key_ptr| {
             try set.put(key_ptr.*, {});
@@ -45,7 +48,7 @@ fn cloneDict(src: Map(i32, Set(i32))) !Map(i32, Set(i32)) {
     return dest;
 }
 
-// clearDict frees a Map(K, V) and calls for every value V.deinit() (usefull for freeing a Map(i32, Set(i32)), or a Map(usize, ArrayList(i32)))
+// clearDict frees a Map(K, V) and calls for every value V.deinit() (usefull for freeing a Map(Value, Set(Value)), or a Map(usize, Sequence))
 fn clearDict(comptime T: type, src: *T) void {
     var it = src.valueIterator();
     while (it.next()) |seq| {
@@ -71,32 +74,32 @@ pub fn init(alloc: std.mem.Allocator) !void {
     // init data structures
     c_cand = 2; // the curling number which we will test next; if it works, we will append it to tail.
     p_cand = 1; // the period which we will test next; if it works, we will append it to periods.
-    tail = ArrayList(i32).init(alloc); // tail has zero or more elements, and all its elements are integers larger than 1
-    periods = ArrayList(i32).init(alloc); // The size of periods always equals the size of tail, and in contains the periods corresponding to the elements of tail.
-    generator = ArrayList(i32).init(alloc); // generator always has length elements which are integers
+    tail = Sequence.init(alloc); // tail has zero or more elements, and all its elements are integers larger than 1
+    periods = Sequence.init(alloc); // The size of periods always equals the size of tail, and in contains the periods corresponding to the elements of tail.
+    generator = Sequence.init(alloc); // generator always has length elements which are integers
     max_lengths = ArrayList(usize).init(alloc); // at i, the value of max_lengths is the largest (official) tail length of a string with length i+1.
-    generators_mem = Map(usize, ArrayList(i32)).init(alloc); // a map in which the keys are all the places in tail which are not in exactly and in which the values are the corresponding generators.
-    best_gens = ArrayList(ArrayList(i32)).init(alloc); // for each i, the value of best_gens is the set of all generators with length i+1 which yield the record value.
+    generators_mem = Map(usize, Sequence).init(alloc); // a map in which the keys are all the places in tail which are not in exactly and in which the values are the corresponding generators.
+    best_gens = ArrayList(Sequence).init(alloc); // for each i, the value of best_gens is the set of all generators with length i+1 which yield the record value.
     change_indices = Set(usize).init(alloc); // places in the tail where the generator was changed
-    // dict = Map(i32, Set(i32)).init(alloc); // At key k, dict has as value the list of numbers i such that exp_seq[i]=k, where exp_seq = generator + tail.
-    // dicts_mem = Map(usize, Map(i32, Set(i32))).init(alloc); //  a map of maps corresponding to the generators in generators_mem
+    // dict = Map(Value, Set(Value)).init(alloc); // At key k, dict has as value the list of numbers i such that exp_seq[i]=k, where exp_seq = generator + tail.
+    // dicts_mem = Map(usize, Map(Value, Set(Value))).init(alloc); //  a map of maps corresponding to the generators in generators_mem
 
-    seq_new = ArrayList(i32).init(alloc);
-    // dict_new = Map(i32, Set(i32)).init(alloc);
+    seq_new = Sequence.init(alloc);
+    // dict_new = Map(Value, Set(Value)).init(alloc);
 
     // creating default values
     try change_indices.put(0, {});
 
-    var empty_gen: ArrayList(i32) = ArrayList(i32).init(alloc);
+    var empty_gen: Sequence = Sequence.init(alloc);
     defer empty_gen.deinit();
 
     for (0..length) |i| {
-        var set: Set(i32) = Set(i32).init(alloc);
+        var set: Set(Value) = Set(Value).init(alloc);
         defer set.deinit();
-        try set.put(@as(i32, @intCast(i)), {});
+        try set.put(@as(Value, @intCast(i)), {});
 
-        try generator.append(-length + @as(i32, @intCast(i))); // type?
-        // try dict.put(-@as(i32, @intCast(i)), try set.clone());
+        try generator.append(-length + @as(Value, @intCast(i))); // type?
+        // try dict.put(-@as(Value, @intCast(i)), try set.clone());
         try max_lengths.append(0);
         try best_gens.append(try empty_gen.clone());
     }
@@ -114,14 +117,14 @@ pub fn deinit() void {
     change_indices.deinit();
     seq_new.deinit();
 
-    // clearDict(Map(i32, Set(i32)), &dict);
-    // clearDict(Map(i32, Set(i32)), &dict_new);
-    clearDict(Map(usize, ArrayList(i32)), &generators_mem);
+    // clearDict(Map(Value, Set(Value)), &dict);
+    // clearDict(Map(Value, Set(Value)), &dict_new);
+    clearDict(Map(usize, Sequence), &generators_mem);
 
-    // dicts_mem: Map(usize, Map(i32, Set(i32)))
+    // dicts_mem: Map(usize, Map(Value, Set(Value)))
     // var it = dicts_mem.valueIterator();
     // while (it.next()) |item| {
-    //     clearDict(Map(i32, Set(i32)), item); // first every inner Map is deallocated...
+    //     clearDict(Map(Value, Set(Value)), item); // first every inner Map is deallocated...
     // }
     // dicts_mem.deinit(); // then also the outer one
 
@@ -133,62 +136,69 @@ pub fn deinit() void {
     // arena.deinit();
 }
 
-// seq is an arraylist with arbitrary i32 integers, returns the curling number of that list
-pub fn krul(seq: *ArrayList(i32), curl: *i32, period: *i32) !void {
+// seq is an arraylist with arbitrary Value integers, returns the curling number of that list
+pub fn krul(seq: *Sequence, curl: *Value, period: *Value) !void {
+    curl.* = 1;
+    period.* = 0;
+
     const l = seq.items.len;
     for (1..l / 2 + 1) |i| {
         var j = i;
         while (seq.items[l - j - 1] == seq.items[l - j - 1 + i]) {
             j += 1;
             if (j >= l) {
+                const candidate: Value = @intCast(j / i);
+                if (candidate > curl.*) {
+                    curl.* = candidate;
+                    period.* = @intCast(i);
+                }
                 break;
             }
-        }
-        const cand: i32 = @intCast(j / i); // usize -> i32
-        if (cand > curl.*) {
-            curl.* = cand;
-            period.* = @intCast(i); // usize -> i32
+            const cand: Value = @intCast(j / i); // usize -> Value
+            if (cand > curl.*) {
+                curl.* = cand;
+                period.* = @intCast(i); // usize -> Value
+            }
         }
     }
 }
 
 // seq is a list with arbitrary integers as entries. Returns the official tail of seq together with the list of corresponding minimal periods.
-pub fn tail_with_periods(seq: *ArrayList(i32), seq_tail: *ArrayList(i32), seq_periods: *ArrayList(i32)) !void {
-    var curl: i32 = 1;
-    var period: i32 = 0;
-    var temp: ArrayList(i32) = try seq.clone();
+pub fn tail_with_periods(seq: *Sequence, seq_tail: *Sequence, seq_periods: *Sequence) !void {
+    var curl: Value = 1;
+    var period: Value = 0;
+    var temp: Sequence = try seq.clone();
     defer temp.deinit();
 
+    const l: usize = seq.items.len;
     try krul(seq, &curl, &period);
     while (curl > 1) {
-        try seq_tail.append(curl);
         try temp.append(curl);
         try seq_periods.append(period);
-        curl = 1;
-        period = 0;
         try krul(&temp, &curl, &period);
     }
+    seq_tail.clearRetainingCapacity();
+    try seq_tail.appendSlice(temp.items[l..]);
 }
 
 // seq is a list with arbitrary integers as entries. Returns first i entries of the official tail of seq
 // together with the list of corresponding minimal periods.
 // If the official tail is smaller than i, return the entire tail and periods.
-pub fn tail_with_periods_part(seq: *ArrayList(i32), seq_tail: *ArrayList(i32), seq_periods: *ArrayList(i32), i: i32) !void {
-    var curl: i32 = 1;
-    var period: i32 = 0;
-    var temp: ArrayList(i32) = try seq.clone();
+pub fn tail_with_periods_part(seq: *Sequence, seq_tail: *Sequence, seq_periods: *Sequence, i: Value) !void {
+    var curl: Value = 1;
+    var period: Value = 0;
+    var temp: Sequence = try seq.clone();
     defer temp.deinit();
 
+    const l: usize = seq.items.len;
     try krul(seq, &curl, &period);
-
     while (curl > 1 and seq_tail.items.len < i) {
-        try seq_tail.append(curl);
         try temp.append(curl);
         try seq_periods.append(period);
-        curl = 1;
-        period = 0;
         try krul(&temp, &curl, &period);
     }
+    seq_tail.clearRetainingCapacity();
+    seq_tail.appendSlice(temp.items[l..]);
 }
 
 // checks whether the size of p_cand is not too big.
@@ -212,35 +222,37 @@ pub fn up() !void {
         c_cand += 1;
         p_cand = 1;
         if (check_c_cand_size()) {
-            if (change_indices.get(periods.items.len) != null) {
-                _ = change_indices.remove(periods.items.len);
-            }
             if (tail.items.len == 0) {
                 c_cand = 0; // terminate program
                 break :loop;
             }
+            if (change_indices.get(periods.items.len) != null) {
+                _ = change_indices.remove(periods.items.len);
+            }
             if (change_indices.get(periods.items.len - 1) == null) {
                 try change_indices.put(periods.items.len - 1, {});
-                // _ = dict.getPtr(tail.getLast()).?.remove(@as(i32, @intCast(length + tail.items.len - 1)));
-                c_cand = tail.pop() + 1;
+                // _ = dict.getPtr(tail.getLast()).?.remove(@as(Value, @intCast(length + tail.items.len - 1)));
+                c_cand = tail.getLast() + 1;
                 p_cand = 1;
-                _ = periods.pop();
             } else {
-                c_cand = tail.pop();
-                p_cand = periods.pop() + 1;
+                c_cand = tail.getLast();
+                p_cand = periods.getLast() + 1;
 
-                generator.clearAndFree(); // future optimalization
-                generator = try generators_mem.get(periods.items.len).?.clone();
+                generator.clearRetainingCapacity(); // future optimalization (done)
+                generator.appendSliceAssumeCapacity(generators_mem.get(periods.items.len - 1).?.items);
+                // generator = try generators_mem.get(periods.items.len - 1).?.clone();
 
-                // clearDict(Map(i32, Set(i32)), &dict);
+                // clearDict(Map(Value, Set(Value)), &dict);
                 // dict = try cloneDict(dicts_mem.get(periods.items.len).?);
-                var del = generators_mem.fetchRemove(periods.items.len); // remove the generator at index periods.items.len and return it
-                clearOptional(Map(usize, ArrayList(i32)).KV, &del);
+                var del = generators_mem.fetchRemove(periods.items.len - 1); // remove the generator at index periods.items.len and return it
+                clearOptional(Map(usize, Sequence).KV, &del);
                 // var deleted = dicts_mem.fetchRemove(periods.items.len); // remove the dict at index periods.items.len and return it
                 // if (deleted != null) {
-                //     clearDict(Map(i32, Set(i32)), &(deleted.?.value));
+                //     clearDict(Map(Value, Set(Value)), &(deleted.?.value));
                 // }
             }
+            _ = tail.pop();
+            _ = periods.pop();
         }
     }
 }
@@ -248,7 +260,7 @@ pub fn up() !void {
 // returns the smallest length of a suffix of generator which gives the same tail
 pub fn real_gen_len() usize {
     var i: usize = 0;
-    loop: while (generator.items[i] == (-length + @as(i32, @intCast(i)))) { // typeError expected
+    loop: while (generator.items[i] == (-length + @as(Value, @intCast(i)))) { // typeError expected
         i += 1;
         if (i == length) {
             break :loop;
@@ -257,7 +269,7 @@ pub fn real_gen_len() usize {
     return length - i;
 }
 
-pub fn check_positive(len: i32) bool {
+pub fn check_positive(len: Value) bool {
     for (generator.items[length - len ..]) |i| {
         if (i < 1) {
             return false;
@@ -277,38 +289,38 @@ pub fn check_positive(len: i32) bool {
 //  If a period does work(i.e. if (check_if_period_works())), we append().
 pub fn append() !void {
     var del = try generators_mem.fetchPut(periods.items.len, try generator.clone()); // set index periods.items.len to (the current) generator
-    clearOptional(Map(usize, ArrayList(i32)).KV, &del); // and return previous value, if there was something at that index
+    clearOptional(Map(usize, Sequence).KV, &del); // and return previous value, if there was something at that index
 
     // var deleted = try dicts_mem.fetchPut(@intCast(periods.items.len), try cloneDict(dict));
     // if (deleted != null) {
-    //     clearDict(Map(i32, Set(i32)), &(deleted.?.value));
+    //     clearDict(Map(Value, Set(Value)), &(deleted.?.value));
     // }
 
-    generator.clearAndFree(); // future optimalization
-    try generator.appendSlice(seq_new.items[0..length]);
-    // clearDict(Map(i32, Set(i32)), &dict);
+    generator.clearRetainingCapacity(); // future optimalization (done)
+    generator.appendSliceAssumeCapacity(seq_new.items[0..length]);
+    // clearDict(Map(Value, Set(Value)), &dict);
     // dict = try cloneDict(dict_new);
 
     // if (dict.getPtr(c_cand) != null) {
     //     try dict.getPtr(c_cand).?.put(@intCast(length + periods.items.len), {});
     //     try dict_new.getPtr(c_cand).?.put(@intCast(length + periods.items.len), {});
     // } else {
-    //     var set: Set(i32) = Set(i32).init(allocator);
+    //     var set: Set(Value) = Set(Value).init(allocator);
     //     defer set.deinit();
 
     //     try set.put(@intCast(length + periods.items.len), {});
 
     //     var removed = try dict.fetchPut(c_cand, try set.clone()); // set index c_cand to set.clone and return previous value if there was something at that index
-    //     clearOptional(Map(i32, Set(i32)).KV, &removed);
+    //     clearOptional(Map(Value, Set(Value)).KV, &removed);
     //     removed = try dict_new.fetchPut(c_cand, try set.clone()); // set index c_cand to set.clone and return previous value if there was something at that index
-    //     clearOptional(Map(i32, Set(i32)).KV, &removed);
+    //     clearOptional(Map(Value, Set(Value)).KV, &removed);
     // }
 
     try tail.append(c_cand);
     try periods.append(p_cand);
 
-    var curl: i32 = 1;
-    var period: i32 = 0;
+    var curl: Value = 1;
+    var period: Value = 0;
     var temp = try generator.clone();
     defer temp.deinit();
 
@@ -316,8 +328,6 @@ pub fn append() !void {
 
     // add the complete tail
     loop: while (true) {
-        curl = 1;
-        period = 0;
         try krul(&temp, &curl, &period);
         if (curl == 1) {
             break :loop;
@@ -330,15 +340,15 @@ pub fn append() !void {
         //     try dict.getPtr(curl).?.put(@intCast(length + periods.items.len - 1), {});
         //     try dict_new.getPtr(curl).?.put(@intCast(length + periods.items.len - 1), {});
         // } else {
-        //     var set: Set(i32) = Set(i32).init(allocator);
+        //     var set: Set(Value) = Set(Value).init(allocator);
         //     defer set.deinit();
 
         //     try set.put(@intCast(length + periods.items.len - 1), {});
 
         //     var removed = try dict.fetchPut(curl, try set.clone()); // set index curl to set.clone and return previous value if there was something at that index
-        //     clearOptional(Map(i32, Set(i32)).KV, &removed);
+        //     clearOptional(Map(Value, Set(Value)).KV, &removed);
         //     removed = try dict_new.fetchPut(curl, try set.clone()); // set index curl to set.clone and return previous value if there was something at that index
-        //     clearOptional(Map(i32, Set(i32)).KV, &removed);
+        //     clearOptional(Map(Value, Set(Value)).KV, &removed);
         // }
     }
 
@@ -349,7 +359,7 @@ pub fn append() !void {
     // update max_lengths
     const len: usize = real_gen_len();
     if (max_lengths.getLast() == periods.items.len) {
-        var tmp: std.ArrayList(i32) = try best_gens.getLast().clone();
+        var tmp: Sequence = try best_gens.getLast().clone();
         defer tmp.deinit();
 
         try tmp.appendSlice(generator.items[0 .. generator.items.len - len]);
@@ -360,7 +370,7 @@ pub fn append() !void {
     if (max_lengths.items[len - 1] < periods.items.len) {
         max_lengths.items[len - 1] = periods.items.len;
 
-        var tmp = ArrayList(i32).init(allocator);
+        var tmp = Sequence.init(allocator);
         defer tmp.deinit();
         try tmp.appendSlice(generator.items[generator.items.len - len ..]);
 
@@ -374,17 +384,17 @@ pub fn append() !void {
 // if there's an error somewhere in the process, it returns false
 // if everything went correctly, this function returns true
 pub fn test_1() !bool {
-    seq_new.clearAndFree(); // future optimalization
-    seq_new = try generator.clone(); // deinited in deinit()
+    seq_new.clearRetainingCapacity(); // future optimalization (done)
+    try seq_new.appendSlice(generator.items);
     try seq_new.appendSlice(tail.items);
-    // clearDict(Map(i32, Set(i32)), &dict_new);
+    // clearDict(Map(Value, Set(Value)), &dict_new);
     // dict_new = try cloneDict(dict);
 
     const k: usize = generator.items.len;
     const l: usize = seq_new.items.len;
     for (0..@intCast((c_cand - 1) * p_cand)) |i| {
-        const a: i32 = seq_new.items[l - 1 - i];
-        const b: i32 = seq_new.items[l - 1 - i - @as(usize, @intCast(p_cand))];
+        const a: Value = seq_new.items[l - 1 - i];
+        const b: Value = seq_new.items[l - 1 - i - @as(usize, @intCast(p_cand))];
         if (a != b and a > 0 and b > 0) {
             return false; // fail
         }
@@ -400,7 +410,7 @@ pub fn test_1() !bool {
             // while (iterator.next()) |item| {
             //     try dict_new.getPtr(a).?.put(item.*, {});
             // }
-            // clearOptional(Map(i32, Set(i32)).KV, &deleted);
+            // clearOptional(Map(Value, Set(Value)).KV, &deleted);
         } else if (b > a) {
             for (0..k) |j| {
                 if (seq_new.items[j] == a) {
@@ -413,7 +423,7 @@ pub fn test_1() !bool {
             // while (iterator.next()) |item| {
             //     try dict_new.getPtr(b).?.put(item.*, {});
             // }
-            // clearOptional(Map(i32, Set(i32)).KV, &deleted);
+            // clearOptional(Map(Value, Set(Value)).KV, &deleted);
         }
     }
     return true;
@@ -430,10 +440,10 @@ pub fn test_2() !bool {
     defer tmp_periods.deinit();
     try tmp_periods.append(p_cand);
 
-    var curl: i32 = 1;
-    var period: i32 = 0;
+    var curl: Value = 1;
+    var period: Value = 0;
     for (0..l - length + 1) |i| {
-        var temp = ArrayList(i32).init(allocator);
+        var temp = Sequence.init(allocator);
         defer temp.deinit();
 
         try temp.appendSlice(seq_new.items[0 .. length + i]);
@@ -484,7 +494,7 @@ pub fn backtracking_step() !void {
 }
 
 // for default behavior enter k2=1000,p2=1000
-pub fn backtracking(k1: i32, p1: i32, k2: i32, p2: i32) void {
+pub fn backtracking(k1: Value, p1: Value, k2: Value, p2: Value) void {
     defer JdzGlobalAllocator.deinitThread(); // call this from every thread that makes an allocation
 
     // generator, tail are the lists we are currently studying. They are not in the memory.
@@ -587,10 +597,10 @@ pub fn main() !void {
 
     allocator = JdzGlobalAllocator.allocator();
 
-    global_best_gens = ArrayList(ArrayList(i32)).init(allocator);
+    global_best_gens = ArrayList(Sequence).init(allocator);
     global_max_lengths = ArrayList(usize).init(allocator);
 
-    var empty_seq = ArrayList(i32).init(allocator);
+    var empty_seq = Sequence.init(allocator);
     defer empty_seq.deinit();
     for (0..length) |_| {
         try global_max_lengths.append(0);
