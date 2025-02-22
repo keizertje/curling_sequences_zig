@@ -34,10 +34,12 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
+        .link_libc = true,
     });
 
-    const jdz_allocator = b.addModule("jdz_allocator", .{ .root_source_file = b.path("externals/jdz_allocator/src/jdz_allocator.zig") });
-    exe.root_module.addImport("jdz_allocator", jdz_allocator);
+    // const jdz_allocator = b.addModule("jdz_allocator", .{ .root_source_file = b.path("externals/jdz_allocator/src/jdz_allocator.zig") });
+    // exe.root_module.addImport("jdz_allocator", jdz_allocator);
+
     // const jdz_allocator = b.dependency("jdz_allocator", .{
     //     .target = target,
     //     .optimize = optimize,
