@@ -1,6 +1,4 @@
 const std = @import("std");
-const jdz_allocator = @import("jdz_allocator");
-const JdzGlobalAllocator = jdz_allocator.JdzGlobalAllocator(.{});
 const v16 = std.ArrayList(i16);
 const Map = std.AutoHashMap;
 
@@ -9,8 +7,6 @@ var g_best_tails: std.ArrayList(usize) = undefined;
 var g_best_grts: std.ArrayList(v16) = undefined;
 var m_queue = std.Thread.Mutex{};
 var m_tails = std.Thread.Mutex{};
-
-var allocator0: std.mem.Allocator = undefined;
 
 const context = struct {
     length: usize,
@@ -95,18 +91,22 @@ pub fn init(len: usize, allocator: std.mem.Allocator) !void {
 }
 
 fn diff(p1: []const i16, p2: []const i16) bool {
+    if (p1.len != p2.len) {
+        std.debug.print("length mismatch\n", .{});
+        return true;
+    }
     return !std.mem.eql(i16, p1, p2); // maybe there are faster ways
 }
 
 pub fn krul(seq: *v16, period: *usize, len: usize, minimum: i16) i16 {
     var curl: i16 = minimum - 1;
-    var limit = len / @as(usize, @intCast(minimum));
+    var limit = @divTrunc(len, @as(usize, @intCast(minimum)));
     var i: usize = 1;
     while (i <= limit) : (i += 1) {
         const p1: []i16 = seq.items[len - i .. len];
         var freq: usize = 2;
         while (true) : (freq += 1) {
-            if (len < freq * i) {
+            if (freq * i > len) {
                 break;
             }
             const p2: []i16 = seq.items[len - freq * i .. len - freq * i + i];
@@ -115,7 +115,7 @@ pub fn krul(seq: *v16, period: *usize, len: usize, minimum: i16) i16 {
             }
             if (curl < freq) {
                 curl = @intCast(freq);
-                limit = len / @as(usize, @intCast(curl + 1));
+                limit = @divTrunc(len, @as(usize, @intCast(curl + 1)));
                 period.* = i;
             }
         }
@@ -256,14 +256,17 @@ fn test_cands(ctx: *context) !bool {
             try ctx.pairs.append(a);
             pairs_len += 2;
 
+            const p_begin: usize = 0;
+            const p_end: usize = pairs_len;
+
             ctx.temp.clearRetainingCapacity();
             try ctx.temp.append(a);
             var temp_len: usize = 1;
             var i: usize = 0;
             while (i < temp_len) : (i += 1) {
                 const tmp = ctx.temp.items[i];
-                var pi: usize = 0;
-                while (pi < pairs_len) : (pi += 2) {
+                var pi: usize = p_begin;
+                while (pi < p_end) : (pi += 2) {
                     if (ctx.pairs.items[pi] == tmp) { // *(pi++) in c++ equals ctx.pairs.items[pi] in zig followed by pi+=1
                         try ctx.temp.append(ctx.pairs.items[pi + 1]); // (that pi+=1 is absorbed into the increment statement (pi+=2 instead of pi+=1))
                         temp_len += 1;
@@ -341,6 +344,7 @@ pub fn worker(thread_number: usize, len: usize, allocator: std.mem.Allocator) !v
                 continue;
 
             cmb = queue.readItem().?;
+            std.debug.print("{any}\n", .{cmb.items});
             if (cmb.items[0] == 0) {
                 try queue.unget(&[_]v16{cmb});
                 break;
@@ -392,11 +396,9 @@ pub fn worker(thread_number: usize, len: usize, allocator: std.mem.Allocator) !v
             try ctx.seq_map.items[@as(usize, @intCast(ctx.c_cand)) + ctx.length].append(@intCast(ctx.length + 1));
         }
 
-        while (true) {
+        try backtracking(&ctx);
+        while (ctx.periods.items.len >= ctx.depth) {
             try backtracking(&ctx);
-            if (ctx.periods.items.len < ctx.depth) {
-                break;
-            }
         }
     }
 
@@ -404,7 +406,7 @@ pub fn worker(thread_number: usize, len: usize, allocator: std.mem.Allocator) !v
         m_tails.lock();
         defer m_tails.unlock();
 
-        for (0..ctx.length) |i| {
+        for (0..ctx.length + 1) |i| {
             if (ctx.best_tails.items[i] > g_best_tails.items[i]) {
                 g_best_tails.items[i] = ctx.best_tails.items[i];
                 g_best_grts.items[i].clearRetainingCapacity();
@@ -414,8 +416,7 @@ pub fn worker(thread_number: usize, len: usize, allocator: std.mem.Allocator) !v
     }
 
     const t2 = std.time.milliTimestamp();
-    std.debug.print("[{}] Thread {} finished, duration: {}\n", .{ t2, thread_number, t2 - t1 });
-    defer JdzGlobalAllocator.deinitThread(); // call this from every thread that makes an allocation
+    std.debug.print("[{}] Thread {} finished, duration: {} ms\n", .{ t2, thread_number, t2 - t1 });
 }
 
 pub fn generate_combinations(len: usize, max_depth: usize, allocator: std.mem.Allocator) !void {
@@ -427,14 +428,14 @@ pub fn generate_combinations(len: usize, max_depth: usize, allocator: std.mem.Al
         try ctx.seq_map.append(v16.init(allocator));
     }
     try ctx.best_tails.appendNTimes(0, len + 1);
-    try ctx.best_grts.resize(len + 1); // TODO
-    for (0..len) |i| {
-        ctx.best_grts.items[i] = try v16.initCapacity(allocator, len);
+    try ctx.best_grts.ensureTotalCapacity(len + 1);
+    for (0..len + 1) |_| {
+        try ctx.best_grts.append(try v16.initCapacity(allocator, len));
     }
 
     var depth = max_depth;
     var cmb = try v16.initCapacity(allocator, 1 + 2 * max_depth);
-    cmb.expandToCapacity();
+    try cmb.appendNTimes(0, 1 + 2 * max_depth);
     cmb.items[0] = @as(i16, @intCast(max_depth));
     for (1..max_depth + 1) |i| {
         cmb.items[2 * i - 1] = 2;
@@ -442,7 +443,7 @@ pub fn generate_combinations(len: usize, max_depth: usize, allocator: std.mem.Al
     }
 
     while (cmb.items[1] <= ctx.length) {
-        while (cmb.items.len < ctx.length * ctx.length and cmb.items[1] <= ctx.length) {
+        while (queue.readableLength() < ctx.length * ctx.length and cmb.items[1] <= ctx.length) {
             ctx.depth = depth;
             try ctx.seq.resize(ctx.length);
             for (0..ctx.length) |i| {
@@ -484,9 +485,13 @@ pub fn generate_combinations(len: usize, max_depth: usize, allocator: std.mem.Al
             ctx.p_cand = cmb.items[ctx.depth * 2];
             if (!invalid and try test_cands(&ctx) and try test_seq_new(&ctx)) {
                 cmb.items[0] = @as(i16, @intCast(depth));
-                m_queue.lock();
-                try queue.writeItem(try cmb.clone());
-                m_queue.unlock();
+                {
+                    m_queue.lock();
+                    defer m_queue.unlock();
+
+                    std.debug.print("{}: {any}\n", .{ queue.readableLength(), cmb.items });
+                    try queue.writeItem(try cmb.clone());
+                }
             }
 
             cmb.items[depth * 2] += 1;
@@ -495,7 +500,7 @@ pub fn generate_combinations(len: usize, max_depth: usize, allocator: std.mem.Al
                 cmb.items[depth * 2] = 1;
                 cmb.items[depth * 2 - 1] += 1;
                 recalc = true;
-                if (depth > 1 and cmb.items[depth * 2 - 1] > cmb.items[depth * 2 - 3] + 1) {
+                if (depth > 1 and (cmb.items[depth * 2 - 1]) > (cmb.items[depth * 2 - 3] + 1)) {
                     cmb.items[depth * 2 - 1] = 2;
                     depth -= 1;
                     cmb.items[depth * 2] += 1;
@@ -505,7 +510,7 @@ pub fn generate_combinations(len: usize, max_depth: usize, allocator: std.mem.Al
             }
 
             if (recalc) {
-                var sum: i16 = cmb.items[0] * cmb.items[0] * cmb.items[1];
+                var sum: i16 = cmb.items[1] * cmb.items[1] * cmb.items[2];
                 depth = 1;
                 while (depth < max_depth) : (depth += 1) {
                     if (sum > max_depth * max_depth) {
@@ -523,12 +528,14 @@ pub fn generate_combinations(len: usize, max_depth: usize, allocator: std.mem.Al
     }
 
     cmb.items[0] = 0;
-    m_queue.lock();
-    try queue.writeItem(try cmb.clone());
-    m_queue.unlock();
+    {
+        m_queue.lock();
+        defer m_queue.unlock();
+
+        try queue.writeItem(try cmb.clone());
+    }
 
     std.debug.print("[{}] Finished generating combinations\n", .{std.time.milliTimestamp()});
-    defer JdzGlobalAllocator.deinitThread(); // call this from every thread that makes an allocation
 }
 
 pub fn log_results(max_dephts: usize) void {
@@ -573,7 +580,7 @@ fn noerror_worker(thread_number: usize, len: usize, allocator: std.mem.Allocator
 }
 
 pub fn main() !void {
-    const length = 100;
+    const length = 9;
     const thread_count = 2;
     const max_depth: comptime_int = comptime block: {
         break :block largest_power(length);
@@ -581,13 +588,7 @@ pub fn main() !void {
 
     std.debug.print("[{}] Started. Length: {}, maximum depth: {}, thread count: {}\n", .{ std.time.milliTimestamp(), length, max_depth, thread_count });
 
-    defer JdzGlobalAllocator.deinit();
-    defer JdzGlobalAllocator.deinitThread(); // call this from every thread that makes an allocation
-    defer std.debug.print("allocator away\n", .{});
-
-    allocator0 = JdzGlobalAllocator.allocator();
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    const allocator = gpa.allocator();
+    const allocator = std.heap.c_allocator;
 
     try init(length, allocator);
 
@@ -598,12 +599,14 @@ pub fn main() !void {
     try pool.init(.{ .allocator = allocator });
     defer pool.deinit();
 
-    try pool.spawn(noerror_generate_cmbs, .{ length, max_depth, allocator });
+    pool.spawnWg(&wait_group, noerror_generate_cmbs, .{ length, max_depth, allocator });
     for (1..thread_count + 1) |i| {
         pool.spawnWg(&wait_group, noerror_worker, .{ i, length, allocator });
     }
 
     wait_group.wait();
+
+    std.debug.print("{}\n", .{queue.readableLength()});
 
     log_results(0);
 }
