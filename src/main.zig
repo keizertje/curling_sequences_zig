@@ -91,10 +91,6 @@ pub fn init(len: usize, allocator: std.mem.Allocator) !void {
 }
 
 fn diff(p1: []const i16, p2: []const i16) bool {
-    if (p1.len != p2.len) {
-        std.debug.print("length mismatch\n", .{});
-        return true;
-    }
     return !std.mem.eql(i16, p1, p2); // maybe there are faster ways
 }
 
@@ -223,13 +219,15 @@ fn test_cands(ctx: *context) !bool { // wrong implementation
     var l = ctx.seq.items.len - 1;
     var lcp: usize = l - @as(usize, @intCast(ctx.p_cand));
     const limit: usize = @intCast((ctx.c_cand - 1) * ctx.p_cand);
-    for (0..limit) |i_0| {
+    for (0..limit) |_| {
         if (ctx.seq.items[l] != ctx.seq.items[lcp] and (ctx.seq.items[l] | ctx.seq.items[lcp]) > 0) {
             return false;
         }
-        if (i_0 != limit - 1) { // last iteration, lcp can't be negative, there may be a faster way
+        if (lcp > 0) { // last iteration, lcp can't be negative, there may be a faster way
             l -= 1;
             lcp -= 1;
+        } else if (lcp == 0) {
+            break;
         }
     }
 
@@ -242,9 +240,9 @@ fn test_cands(ctx: *context) !bool { // wrong implementation
     var pairs_len: usize = 0;
     l = ctx.seq.items.len - 1; // reset l and lcp
     lcp = l - @as(usize, @intCast(ctx.p_cand));
-    for (0..limit) |i_0| {
-        var a = ctx.seq.items[l];
-        var b = ctx.seq.items[lcp];
+    for (0..limit) |_| {
+        var a = ctx.seq_new.items[l];
+        var b = ctx.seq_new.items[lcp];
         if (a != b) {
             if ((a | b) > 0)
                 return false;
@@ -279,9 +277,11 @@ fn test_cands(ctx: *context) !bool { // wrong implementation
                 }
             }
         }
-        if (i_0 != limit - 1) {
+        if (lcp > 0) {
             l -= 1;
             lcp -= 1;
+        } else if (lcp == 0) {
+            break;
         }
     }
     return true;
@@ -329,8 +329,8 @@ pub fn worker(thread_number: usize, len: usize, allocator: std.mem.Allocator) !v
         try ctx.best_grts.append(v16.init(allocator));
         try ctx.best_grts.items[i].appendNTimes(0, len);
     }
-    try ctx.seq_map.ensureTotalCapacity(2 * len + 1);
-    for (0..2 * len + 1) |_| {
+    try ctx.seq_map.ensureTotalCapacity(2 * len + 2);
+    for (0..2 * len + 2) |_| {
         try ctx.seq_map.append(v16.init(allocator));
     }
 
@@ -344,7 +344,6 @@ pub fn worker(thread_number: usize, len: usize, allocator: std.mem.Allocator) !v
                 continue;
 
             cmb = queue.readItem().?;
-            // std.debug.print("{any}\n", .{cmb.items});
             if (cmb.items[0] == 0) {
                 try queue.unget(&[_]v16{cmb});
                 break;
@@ -477,28 +476,21 @@ pub fn generate_combinations(len: usize, max_depth: usize, allocator: std.mem.Al
                     try ctx.seq_map.items[@as(usize, @intCast(ctx.c_cand + @as(i16, @intCast(ctx.length))))].append(@as(i16, @intCast(ctx.length + 1)));
                     try ctx.change_indices.put(@as(i16, @intCast(i - 1)), undefined);
                 } else {
-                    std.debug.print(".", .{});
                     invalid = true;
                     break;
                 }
             }
-            // std.debug.print("\n", .{});
 
             ctx.c_cand = cmb.items[ctx.depth * 2 - 1];
             ctx.p_cand = cmb.items[ctx.depth * 2];
-            const res1 = try test_cands(&ctx);
-            const res2 = try test_seq_new(&ctx);
-            if (!invalid and res1 and res2) {
+            if (!invalid and try test_cands(&ctx) and try test_seq_new(&ctx)) {
                 cmb.items[0] = @as(i16, @intCast(depth));
                 {
                     m_queue.lock();
                     defer m_queue.unlock();
 
-                    // std.debug.print("{}: {any}\n", .{ queue.readableLength(), cmb.items });
                     try queue.writeItem(try cmb.clone());
                 }
-            } else {
-                std.debug.print(if (res1) (if (!res2) "_" else "+") else "|", .{});
             }
 
             cmb.items[depth * 2] += 1;
@@ -539,7 +531,6 @@ pub fn generate_combinations(len: usize, max_depth: usize, allocator: std.mem.Al
         m_queue.lock();
         defer m_queue.unlock();
 
-        // std.debug.print("{}: {any}\n", .{ queue.readableLength(), cmb.items });
         try queue.writeItem(try cmb.clone());
     }
 
@@ -588,8 +579,8 @@ fn noerror_worker(thread_number: usize, len: usize, allocator: std.mem.Allocator
 }
 
 pub fn main() !void {
-    const length = 3;
-    const thread_count = 2;
+    const length = 80;
+    const thread_count = 1;
     const max_depth: comptime_int = comptime block: {
         break :block largest_power(length); // could be read as: return largest power. just to make this comptime and save that 2 microseconds...
     };
@@ -608,9 +599,9 @@ pub fn main() !void {
     defer pool.deinit();
 
     pool.spawnWg(&wait_group, noerror_generate_cmbs, .{ length, max_depth, allocator });
-    //for (1..thread_count + 1) |i| {
-    //    pool.spawnWg(&wait_group, noerror_worker, .{ i, length, allocator });
-    //}
+    for (1..thread_count + 1) |i| {
+        pool.spawnWg(&wait_group, noerror_worker, .{ i, length, allocator });
+    }
 
     wait_group.wait();
 
