@@ -159,7 +159,7 @@ fn backtracking_step(ctx: *context) !void {
             // implementation of std::find
             var i: usize = 0;
             while (ctx.seq_map.items[@as(usize, @intCast(ctx.seq.getLast())) + ctx.length].items[i] != ctx.seq.items.len - 1) : (i += 1) {}
-            _ = ctx.seq_map.items[@as(usize, @intCast(ctx.seq.getLast())) + ctx.length].orderedRemove(i); // swap?
+            _ = ctx.seq_map.items[@as(usize, @intCast(ctx.seq.getLast())) + ctx.length].swapRemove(i);
             _ = ctx.seq.pop();
             _ = ctx.periods.pop();
             if (ctx.change_indices.contains(k + 1)) {
@@ -231,8 +231,9 @@ fn test_cands(ctx: *context) !bool { // wrong implementation
         }
     }
 
-    ctx.seq_new.clearAndFree();
-    ctx.seq_new = try ctx.seq.clone();
+    ctx.seq_new.clearRetainingCapacity();
+    try ctx.seq_new.ensureTotalCapacity(ctx.seq.items.len);
+    ctx.seq_new.appendSliceAssumeCapacity(ctx.seq.items);
 
     ctx.pairs.clearRetainingCapacity();
     try ctx.pairs.ensureTotalCapacity(limit);
@@ -579,7 +580,7 @@ fn noerror_worker(thread_number: usize, len: usize, allocator: std.mem.Allocator
 }
 
 pub fn main() !void {
-    const length = 80;
+    const length = 56;
     const thread_count = 1;
     const max_depth: comptime_int = comptime block: {
         break :block largest_power(length); // could be read as: return largest power. just to make this comptime and save that 2 microseconds...
@@ -588,6 +589,11 @@ pub fn main() !void {
     std.debug.print("[{}] Started. Length: {}, maximum depth: {}, thread count: {}\n", .{ std.time.milliTimestamp(), length, max_depth, thread_count });
 
     const allocator = std.heap.c_allocator;
+
+    // var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    // defer arena.deinit();
+
+    // const allocator = arena.allocator();
 
     try init(length, allocator);
 

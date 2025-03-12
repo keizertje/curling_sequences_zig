@@ -1,5 +1,7 @@
 const std = @import("std");
 
+const CFlags = &.{};
+
 // Although this function looks imperative, note that its job is to
 // declaratively construct a build graph that will be executed by an external
 // runner.
@@ -37,15 +39,12 @@ pub fn build(b: *std.Build) void {
         .link_libc = true,
     });
 
-    // const jdz_allocator = b.addModule("jdz_allocator", .{ .root_source_file = b.path("externals/jdz_allocator/src/jdz_allocator.zig") });
-    // exe.root_module.addImport("jdz_allocator", jdz_allocator);
+    exe.addCSourceFile(.{
+        .file = b.path("src/c_func.c"),
+        .flags = CFlags,
+    });
 
-    // const jdz_allocator = b.dependency("jdz_allocator", .{
-    //     .target = target,
-    //     .optimize = optimize,
-    // });
-
-    // exe.root_module.addImport("jdz_allocator", jdz_allocator.module("jdz_allocator"));
+    exe.addIncludePath(b.path("include/"));
 
     // This declares intent for the executable to be installed into the
     // standard location when the user invokes the "install" step (the default
@@ -86,10 +85,18 @@ pub fn build(b: *std.Build) void {
     const run_lib_unit_tests = b.addRunArtifact(lib_unit_tests);
 
     const exe_unit_tests = b.addTest(.{
-        .root_source_file = b.path("src/main.zig"),
+        .root_source_file = b.path("src/test.zig"),
         .target = target,
         .optimize = optimize,
+        .link_libc = true,
     });
+
+    exe_unit_tests.addCSourceFile(.{
+        .file = b.path("src/c_func.c"),
+        .flags = CFlags,
+    });
+
+    exe_unit_tests.addIncludePath(b.path("include"));
 
     const run_exe_unit_tests = b.addRunArtifact(exe_unit_tests);
 
