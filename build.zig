@@ -23,19 +23,9 @@ pub fn build(b: *std.Build) void {
         "Skip tests that do not match any of the specified filters",
     ) orelse &.{};
 
-    const lib = b.addStaticLibrary(.{
-        .name = "out",
-        // In this case the main source file is merely a path, however, in more
-        // complicated build scripts, this could be a generated file.
-        .root_source_file = b.path("src/root.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-
     // This declares intent for the library to be installed into the standard
     // location when the user invokes the "install" step (the default step when
     // running `zig build`).
-    b.installArtifact(lib);
 
     const exe = b.addExecutable(.{
         .name = "out",
@@ -82,15 +72,16 @@ pub fn build(b: *std.Build) void {
 
     // Creates a step for unit testing. This only builds the test executable
     // but does not run it.
-    const lib_unit_tests = b.addTest(.{
-        .root_source_file = b.path("src/root.zig"),
+
+    const unit_tests = b.addTest(.{
+        .root_source_file = b.path("src/test.zig"),
         .target = target,
         .optimize = optimize,
+        .link_libc = true,
+        .filters = test_filters,
     });
 
-    const run_lib_unit_tests = b.addRunArtifact(lib_unit_tests);
-
-    const exe_unit_tests = b.addTest(.{
+    const diff_unit_tests = b.addTest(.{
         .root_source_file = b.path("src/diff.zig"),
         .target = target,
         .optimize = optimize,
@@ -98,21 +89,52 @@ pub fn build(b: *std.Build) void {
         .filters = test_filters,
     });
 
-    exe_unit_tests.addCSourceFile(.{
+    const diff_test_unit_tests = b.addTest(.{
+        .root_source_file = b.path("src/diff.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+        .filters = test_filters,
+    });
+
+    unit_tests.addCSourceFile(.{
         .file = b.path("src/c_src/c_func.c"),
         .flags = CFlags,
     });
 
-    exe_unit_tests.addIncludePath(b.path("src/include/"));
+    diff_unit_tests.addCSourceFile(.{
+        .file = b.path("src/c_src/c_func.c"),
+        .flags = CFlags,
+    });
 
-    b.installArtifact(exe_unit_tests);
+    diff_test_unit_tests.addCSourceFile(.{
+        .file = b.path("src/c_src/c_func.c"),
+        .flags = CFlags,
+    });
 
-    const run_exe_unit_tests = b.addRunArtifact(exe_unit_tests);
+    unit_tests.addIncludePath(b.path("src/include/"));
+
+    diff_unit_tests.addIncludePath(b.path("src/include/"));
+
+    diff_test_unit_tests.addIncludePath(b.path("src/include/"));
+
+    b.installArtifact(unit_tests);
+
+    b.installArtifact(diff_unit_tests);
+
+    b.installArtifact(diff_test_unit_tests);
+
+    const run_unit_tests = b.addRunArtifact(unit_tests);
+
+    const run_diff_unit_tests = b.addRunArtifact(diff_unit_tests);
+
+    const run_diff_test_unit_tests = b.addRunArtifact(diff_test_unit_tests);
 
     // Similar to creating the run step earlier, this exposes a `test` step to
     // the `zig build --help` menu, providing a way for the user to request
     // running the unit tests.
     const test_step = b.step("test", "Run unit tests");
-    test_step.dependOn(&run_lib_unit_tests.step);
-    test_step.dependOn(&run_exe_unit_tests.step);
+    test_step.dependOn(&run_unit_tests.step);
+    test_step.dependOn(&run_diff_unit_tests.step);
+    test_step.dependOn(&run_diff_test_unit_tests.step);
 }

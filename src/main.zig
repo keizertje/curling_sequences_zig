@@ -171,8 +171,9 @@ fn backtracking_step(ctx: *context) !void {
             }
 
             // implementation of std::find
-            var i: usize = 0;
-            while (ctx.seq_map.items[@as(usize, @intCast(ctx.seq.getLast())) + ctx.length].items[i] != ctx.seq.items.len - 1) : (i += 1) {}
+            // var i: usize = 0;
+            // while (ctx.seq_map.items[@as(usize, @intCast(ctx.seq.getLast())) + ctx.length].items[i] != ctx.seq.items.len - 1) : (i += 1) {}
+            const i = std.mem.indexOfScalar(i16, ctx.seq_map.items[@as(usize, @intCast(ctx.seq.getLast())) + ctx.length].items, @intCast(ctx.seq.items.len - 1)).?;
             _ = ctx.seq_map.items[@as(usize, @intCast(ctx.seq.getLast())) + ctx.length].swapRemove(i);
             _ = ctx.seq.pop();
             _ = ctx.periods.pop();
@@ -250,7 +251,7 @@ fn test_cands(ctx: *context) !bool { // wrong implementation
     ctx.seq_new.appendSliceAssumeCapacity(ctx.seq.items);
 
     ctx.pairs.clearRetainingCapacity();
-    try ctx.pairs.ensureTotalCapacity(limit);
+    try ctx.pairs.ensureTotalCapacity(2 * limit);
 
     var pairs_len: usize = 0;
     l = ctx.seq.items.len - 1; // reset l and lcp
@@ -265,8 +266,8 @@ fn test_cands(ctx: *context) !bool { // wrong implementation
             if (a > b)
                 std.mem.swap(i16, &a, &b);
 
-            try ctx.pairs.append(b);
-            try ctx.pairs.append(a);
+            ctx.pairs.appendAssumeCapacity(b);
+            ctx.pairs.appendAssumeCapacity(a);
             pairs_len += 2;
 
             const p_begin: usize = 0;

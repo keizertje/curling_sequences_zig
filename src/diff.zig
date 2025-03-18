@@ -36,6 +36,7 @@ fn diff_exp(p1: []const i16, p2: []const i16) bool {
                 return true;
             }
 
+            // should check for i >= @sizeOf(usize) - @clz(p1.len) - 1
             if (i >= 7) {
                 return false;
             }
@@ -48,6 +49,7 @@ fn diff_exp(p1: []const i16, p2: []const i16) bool {
     return false; // this will never be hit
 }
 
+/// spurious wrong results, diff_c_wrapper is faster
 fn diff_fast(p1: []const i16, p2: []const i16, comptime len: usize) bool {
     const TYPE = @Type(.{ .int = .{
         .signedness = .unsigned,
@@ -73,55 +75,6 @@ fn diff_fast2(p1: []const i16, p2: []const i16, comptime len: usize) bool {
     const p2_many: [*]const TYPE = @alignCast(@ptrCast(p2_16));
 
     return p1_many[0] != p2_many[0];
-}
-
-fn loadUnalignedU64(ptr: *const u64) u64 {
-    var result: u64 = undefined;
-    @memcpy(@as([*]u8, @ptrCast(&result))[0..8], @as([*]const u8, @ptrCast(ptr))[0..8]);
-    return result;
-}
-
-fn slicesEqual(a: []const i16, b: []const i16) bool {
-    if (a.len != b.len) return false;
-
-    var i: usize = 0;
-
-    // Vergelijk losse i16's totdat we minstens 8 bytes tegelijk kunnen lezen
-    while (i < a.len and (@intFromPtr(&a[i]) % 8 != 0 or @intFromPtr(&b[i]) % 8 != 0)) : (i += 1) {
-        if (a[i] != b[i]) return false;
-    }
-
-    // Vanaf hier kunnen we `u64` loads doen, zelfs als ze niet aligned zijn
-    const len64 = (a.len - i) / 4;
-    var j: usize = 0;
-    while (j < len64) : (j += 1) {
-        const uA = loadUnalignedU64(@alignCast(@ptrCast(&a[i + j * 4])));
-        const uB = loadUnalignedU64(@alignCast(@ptrCast(&b[i + j * 4])));
-        if (uA != uB) return false;
-    }
-
-    // Resterende losse i16 vergelijkingen
-    i += j * 4;
-    while (i < a.len) : (i += 1) {
-        if (a[i] != b[i]) return false;
-    }
-
-    return true;
-}
-
-fn readValue(slc: []const i16) u65535 {
-    var res: u65535 = 0;
-    var i: usize = 0;
-    while (@intFromPtr(&slc[i]) % 8 != 0) : (i += 1) {
-        res <<= 1;
-        res += slc[i];
-    }
-    const p: [*]const u64 = @alignCast(@ptrCast(&slc[i]));
-    while (i + 4 <= slc.len) : (i += 4) {
-        res <<= 4;
-        res += p[i / 4];
-    }
-    while (i < slc.len) {}
 }
 
 fn diff_c_wrapper(p1: []const i16, p2: []const i16) bool {
@@ -305,8 +258,4 @@ test "check working 15" {
     const expected = diff_std(&[_]i16{ 500, 400, 300, 200, 100 }, &[_]i16{ 100, 200, 300, 400, 500 });
 
     try std.testing.expectEqual(expected, res);
-}
-
-pub fn main() !void {
-    std.debug.print("{}, {}\n", .{@import("builtin").target.cpu.arch.endian()});
 }
