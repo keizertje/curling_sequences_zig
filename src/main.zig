@@ -46,6 +46,8 @@ const context = struct {
 
 var known_tails: [390]usize = undefined;
 
+const diff = @import("diff.zig").diff_best;
+
 pub fn init(len: usize, allocator: std.mem.Allocator) !void {
     g_best_tails = std.ArrayList(usize).init(allocator); // TODO initcapacity
     g_best_grts = std.ArrayList(v16).init(allocator);
@@ -90,9 +92,21 @@ pub fn init(len: usize, allocator: std.mem.Allocator) !void {
     known_tails[385] = 3557;
 }
 
-fn diff(p1: []const i16, p2: []const i16) bool {
-    return !std.mem.eql(i16, p1, p2); // maybe there are faster ways
-}
+// fn diff(p1: []const i16, p2: []const i16) bool {
+//     return !std.mem.eql(i16, p1, p2); // maybe there are faster ways
+// }
+
+// fn diff_fast(p1: []const i16, p2: []const i16, comptime len: usize) bool {
+//     const TYPE = @Type(.{ .int = .{
+//         .signedness = .unsigned,
+//         .bits = len,
+//     } });
+
+//     const v1 = std.mem.bytesAsValue(TYPE, p1);
+//     const v2 = std.mem.bytesAsValue(TYPE, p2);
+
+//     return v1 != v2;
+// }
 
 pub fn krul(seq: *v16, period: *usize, len: usize, minimum: i16) i16 {
     var curl: i16 = minimum - 1;

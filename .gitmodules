@@ -1,3 +1,0 @@
-[submodule "externals/jdz_allocator"]
-	path = externals/jdz_allocator
-	url = https://github.com/joadnacer/jdz_allocator.git

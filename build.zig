@@ -17,6 +17,12 @@ pub fn build(b: *std.Build) void {
     // set a preferred release mode, allowing the user to decide how to optimize.
     const optimize = b.standardOptimizeOption(.{});
 
+    const test_filters: []const []const u8 = b.option(
+        []const []const u8,
+        "test-filter",
+        "Skip tests that do not match any of the specified filters",
+    ) orelse &.{};
+
     const lib = b.addStaticLibrary(.{
         .name = "out",
         // In this case the main source file is merely a path, however, in more
@@ -40,11 +46,11 @@ pub fn build(b: *std.Build) void {
     });
 
     exe.addCSourceFile(.{
-        .file = b.path("src/c_func.c"),
+        .file = b.path("src/c_src/c_func.c"),
         .flags = CFlags,
     });
 
-    exe.addIncludePath(b.path("include/"));
+    exe.addIncludePath(b.path("src/include/"));
 
     // This declares intent for the executable to be installed into the
     // standard location when the user invokes the "install" step (the default
@@ -85,18 +91,21 @@ pub fn build(b: *std.Build) void {
     const run_lib_unit_tests = b.addRunArtifact(lib_unit_tests);
 
     const exe_unit_tests = b.addTest(.{
-        .root_source_file = b.path("src/test.zig"),
+        .root_source_file = b.path("src/diff.zig"),
         .target = target,
         .optimize = optimize,
         .link_libc = true,
+        .filters = test_filters,
     });
 
     exe_unit_tests.addCSourceFile(.{
-        .file = b.path("src/c_func.c"),
+        .file = b.path("src/c_src/c_func.c"),
         .flags = CFlags,
     });
 
-    exe_unit_tests.addIncludePath(b.path("include"));
+    exe_unit_tests.addIncludePath(b.path("src/include/"));
+
+    b.installArtifact(exe_unit_tests);
 
     const run_exe_unit_tests = b.addRunArtifact(exe_unit_tests);
 
