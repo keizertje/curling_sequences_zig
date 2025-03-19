@@ -107,18 +107,18 @@ pub fn init(comptime len: usize, allocator: std.mem.Allocator) !void {
 //     return v1 != v2;
 // }
 
-pub fn krul(seq: *v16, period: *usize, len: usize, minimum: i16) i16 {
+pub fn krul(seq: []const i16, period: *usize, len: usize, minimum: i16) i16 {
     var curl: i16 = minimum - 1;
     var limit = @divTrunc(len, @as(usize, @intCast(minimum)));
     var i: usize = 1;
     while (i <= limit) : (i += 1) {
-        const p1: []i16 = seq.items[len - i .. len];
+        const p1: []const i16 = seq[len - i .. len];
         var freq: usize = 2;
         while (true) : (freq += 1) {
             if (freq * i > len) {
                 break;
             }
-            const p2: []i16 = seq.items[len - freq * i .. len - freq * i + i];
+            const p2: []const i16 = seq[len - freq * i .. len - freq * i + i];
             if (diff(p1, p2)) {
                 break;
             }
@@ -211,7 +211,7 @@ fn append(ctx: *context) !void {
     try ctx.seq_map.items[@as(usize, @intCast(ctx.c_cand)) + ctx.length].append(@intCast(seq_len - 1));
     var period: usize = 0;
     while (true) {
-        const curl = krul(&ctx.seq, &period, seq_len, 2);
+        const curl = krul(ctx.seq.items, &period, seq_len, 2);
         if (curl == 1) break;
         try ctx.seq.append(curl);
         try ctx.seq_map.items[@as(usize, @intCast(curl)) + ctx.length].append(@intCast(seq_len));
@@ -309,7 +309,7 @@ fn test_seq_new(ctx: *context) !bool {
     var period: usize = 0;
     var i: usize = 0;
     while (i < l - ctx.length) : (i += 1) {
-        const curl = krul(&ctx.seq_new, &period, ctx.length + i, ctx.seq_new.items[ctx.length + i]);
+        const curl = krul(ctx.seq_new.items, &period, ctx.length + i, ctx.seq_new.items[ctx.length + i]);
 
         if (!ctx.change_indices.contains(@intCast(i))) {
             if (curl != ctx.seq_new.items[ctx.length + i]) {
@@ -321,7 +321,7 @@ fn test_seq_new(ctx: *context) !bool {
             }
         }
     }
-    const curl = krul(&ctx.seq_new, &period, l, ctx.c_cand);
+    const curl = krul(ctx.seq_new.items, &period, l, ctx.c_cand);
     return (curl == ctx.c_cand and period == ctx.p_cand);
 }
 
@@ -390,7 +390,7 @@ pub fn worker(thread_number: usize, len: usize, allocator: std.mem.Allocator) !v
             ctx.p_cand = cmb.items[i * 2];
 
             var period: usize = 0;
-            const curl = krul(&ctx.seq, &period, ctx.length + i - 1, ctx.c_cand);
+            const curl = krul(ctx.seq.items, &period, ctx.length + i - 1, ctx.c_cand);
             if (curl < ctx.c_cand) {
                 try ctx.change_indices.put(@intCast(i - 1), undefined);
             }
