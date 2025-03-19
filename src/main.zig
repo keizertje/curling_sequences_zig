@@ -48,16 +48,15 @@ var known_tails: [390]usize = undefined;
 
 const diff = @import("diff.zig").diff_best;
 
-pub fn init(len: usize, allocator: std.mem.Allocator) !void {
-    g_best_tails = std.ArrayList(usize).init(allocator); // TODO initcapacity
-    g_best_grts = std.ArrayList(v16).init(allocator);
+pub fn init(comptime len: usize, allocator: std.mem.Allocator) !void {
+    g_best_tails = try std.ArrayList(usize).initCapacity(allocator, len + 1);
+    g_best_grts = try std.ArrayList(v16).initCapacity(allocator, len + 1);
 
     queue = std.fifo.LinearFifo(v16, .Dynamic).init(allocator);
 
-    try g_best_tails.appendNTimes(0, len + 1);
-    try g_best_grts.resize(len + 1); // TODO
-    for (0..len + 1) |i| {
-        g_best_grts.items[i] = try v16.initCapacity(allocator, len);
+    g_best_tails.appendNTimesAssumeCapacity(0, len + 1);
+    inline for (0..len + 1) |_| {
+        g_best_grts.appendAssumeCapacity(try v16.initCapacity(allocator, len));
     }
 
     known_tails[2] = 2;
@@ -134,8 +133,9 @@ pub fn krul(seq: *v16, period: *usize, len: usize, minimum: i16) i16 {
 }
 
 fn erase(vec: *v16, x: i16) void {
-    var i: usize = 0;
-    while (vec.items[i] != x) : (i += 1) {}
+    // var i: usize = 0;
+    // while (vec.items[i] != x) : (i += 1) {}
+    const i = std.mem.indexOfScalar(i16, vec.items, x).?;
     _ = vec.swapRemove(i);
 }
 
@@ -213,7 +213,7 @@ fn append(ctx: *context) !void {
     while (true) {
         const curl = krul(&ctx.seq, &period, seq_len, 2);
         if (curl == 1) break;
-        try ctx.seq.append(@intCast(curl));
+        try ctx.seq.append(curl);
         try ctx.seq_map.items[@as(usize, @intCast(curl)) + ctx.length].append(@intCast(seq_len));
         seq_len += 1;
         try ctx.periods.append(@intCast(period));
@@ -226,7 +226,7 @@ fn append(ctx: *context) !void {
     const len = real_grtr_len(ctx);
     if (ctx.best_tails.items[len] < tail) {
         ctx.best_tails.items[len] = tail;
-        std.mem.copyForwards(i16, ctx.best_grts.items[len].items[0..len], ctx.seq.items[ctx.length - len .. ctx.length]); // TODO
+        std.mem.copyForwards(i16, ctx.best_grts.items[len].items[0..len], ctx.seq.items[ctx.length - len .. ctx.length]); // TODO?
     }
 }
 
@@ -274,7 +274,8 @@ fn test_cands(ctx: *context) !bool { // wrong implementation
             const p_end: usize = pairs_len;
 
             ctx.temp.clearRetainingCapacity();
-            try ctx.temp.append(a);
+            try ctx.temp.ensureTotalCapacity(ctx.seq_new.items.len);
+            ctx.temp.appendAssumeCapacity(a);
             var temp_len: usize = 1;
             var i: usize = 0;
             while (i < temp_len) : (i += 1) {
@@ -282,7 +283,7 @@ fn test_cands(ctx: *context) !bool { // wrong implementation
                 var pi: usize = p_begin;
                 while (pi < p_end) : (pi += 2) {
                     if (ctx.pairs.items[pi] == tmp) { // *(pi++) in c++ equals ctx.pairs.items[pi] in zig followed by pi+=1
-                        try ctx.temp.append(ctx.pairs.items[pi + 1]); // (that pi+=1 is absorbed into the increment statement (pi+=2 instead of pi+=1))
+                        ctx.temp.appendAssumeCapacity(ctx.pairs.items[pi + 1]); // (that pi+=1 is absorbed into the increment statement (pi+=2 instead of pi+=1))
                         temp_len += 1;
                     }
                 }
@@ -539,7 +540,7 @@ pub fn generate_combinations(len: usize, max_depth: usize, allocator: std.mem.Al
             }
         }
 
-        std.time.sleep(100 * std.time.ns_per_ms); // docu says: "Spurious wakeups are possible and no precision of timing is guaranteed.", so watch out!
+        std.time.sleep(5 * std.time.ns_per_ms); // docu says: "Spurious wakeups are possible and no precision of timing is guaranteed.", so watch out!
     }
 
     cmb.items[0] = 0;
@@ -586,8 +587,9 @@ inline fn largest_power(n: usize) usize {
     return power;
 }
 
-fn noerror_generate_cmbs(len: usize, max_depth: usize, allocator: std.mem.Allocator) void {
+fn noerror_generate_cmbs(len: usize, max_depth: usize, allocator: std.mem.Allocator, pool: *std.Thread.Pool, wg: *std.Thread.WaitGroup) void {
     generate_combinations(len, max_depth, allocator) catch |e| std.debug.panic("error: {any}\n", .{e});
+    pool.spawnWg(wg, noerror_worker, .{ 0, len, allocator });
 }
 
 fn noerror_worker(thread_number: usize, len: usize, allocator: std.mem.Allocator) void {
@@ -619,7 +621,7 @@ pub fn main() !void {
     try pool.init(.{ .allocator = allocator });
     defer pool.deinit();
 
-    pool.spawnWg(&wait_group, noerror_generate_cmbs, .{ length, max_depth, allocator });
+    pool.spawnWg(&wait_group, noerror_generate_cmbs, .{ length, max_depth, allocator, &pool, &wait_group });
     for (1..thread_count + 1) |i| {
         pool.spawnWg(&wait_group, noerror_worker, .{ i, length, allocator });
     }

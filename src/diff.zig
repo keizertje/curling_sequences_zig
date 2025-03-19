@@ -7,7 +7,7 @@ const c = @cImport({
     @cInclude("c_func.h");
 });
 
-pub const diff_best = diff_c_wrapper;
+pub const diff_best = diff_std;
 const testing_fn = diff_c_wrapper;
 
 const diff_exp2 = @import("diff.zig").diff_exp2;
