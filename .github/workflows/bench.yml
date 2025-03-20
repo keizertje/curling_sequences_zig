@@ -3,9 +3,8 @@ jobs:
   bench:
     runs-on: windows-latest
     steps:
+      - run: echo ${{secrets.PAT}} | gh auth login --with-token
       - run: gh auth setup-git
-        env: 
-          GH-TOKEN: ${{secrets.GITHUB_TOKEN}}
       - run: choco install zig
       - run: zig version
       
