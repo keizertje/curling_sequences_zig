@@ -48,14 +48,14 @@ var known_tails: [390]usize = undefined;
 
 const diff = @import("diff.zig").diff_best;
 
-pub fn init(comptime len: usize, allocator: std.mem.Allocator) !void {
+pub fn init(len: usize, allocator: std.mem.Allocator) !void {
     g_best_tails = try std.ArrayList(usize).initCapacity(allocator, len + 1);
     g_best_grts = try std.ArrayList(v16).initCapacity(allocator, len + 1);
 
     queue = std.fifo.LinearFifo(v16, .Dynamic).init(allocator);
 
     g_best_tails.appendNTimesAssumeCapacity(0, len + 1);
-    inline for (0..len + 1) |_| {
+    for (0..len + 1) |_| {
         g_best_grts.appendAssumeCapacity(try v16.initCapacity(allocator, len));
     }
 
