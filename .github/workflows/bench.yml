@@ -4,6 +4,8 @@ jobs:
     runs-on: windows-latest
     steps:
       - run: gh auth setup-git
+        env: 
+          GH-TOKEN: ${{secrets.GITHUB_TOKEN}}
       - run: choco install zig
       - run: zig version
       
