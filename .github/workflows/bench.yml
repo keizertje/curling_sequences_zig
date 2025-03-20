@@ -1,0 +1,8 @@
+on: [push]
+jobs: 
+  run56-1:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: snap install zig --classic --beta
+      - run: zig version
