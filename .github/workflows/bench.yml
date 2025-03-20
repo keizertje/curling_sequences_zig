@@ -24,5 +24,6 @@ jobs:
         run: (Measure-Command {./zig-out/bin/out.exe 160 4 | Out-Default}).ToString() >> ${{runner.temp}}/Curling-sequences-bench/results.txt
       - run: echo "`n`n" >> ../Curling-sequences-bench/results.txt
 
-      - run: $time = 
+      - run: $time = Get-Date -Format "dd-MM-yyyy HH:mm:ss"
       - run: git commit -m "commit ${{github.sha}} at $time"
+      - run: git push
