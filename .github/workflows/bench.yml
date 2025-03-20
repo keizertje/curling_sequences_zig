@@ -1,8 +1,16 @@
 on: [push]
 jobs: 
-  run56-1:
-    runs-on: ubuntu-latest
+  bench:
+    runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - run: snap install zig --classic --beta
+      - run: winget install -e --id zig.zig
       - run: zig version
+      - uses: actions/checkout@v4
+      - name: run56@1
+      - run: zig build run --release=fast -- 56 1
+      - name: run80@1
+      - run: zig build run --release=fast -- 80 1
+      - name: run120@6
+      - run: zig build run --release=fast -- 120 2
+      - name: run180@16
+      - run: zig build run --release=fast -- 180 4
