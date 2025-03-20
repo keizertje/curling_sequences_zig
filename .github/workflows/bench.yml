@@ -6,13 +6,13 @@ jobs:
       - run: choco install zig
       - run: zig version
       
-      #- uses: actions/checkout@v4
+      - uses: actions/checkout@v4
       
-      #- name: run56@1
-      #  run: zig build run --release=fast -- 56 1
-      #- name: run80@1
-      #  run: zig build run --release=fast -- 80 1
-      #- name: run120@6
-      #  run: zig build run --release=fast -- 120 2
-      #- name: run180@16
-      #  run: zig build run --release=fast -- 180 4
+      - name: run56@1
+        run: zig build run --release=fast -- 56 1
+      - name: run80@1
+        run: zig build run --release=fast -- 80 1
+      - name: run120@6
+        run: zig build run --release=fast -- 120 2
+      - name: run180@16
+        run: zig build run --release=fast -- 180 4
