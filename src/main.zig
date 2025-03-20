@@ -230,7 +230,7 @@ fn append(ctx: *context) !void {
     }
 }
 
-fn test_cands(ctx: *context) !bool { // wrong implementation
+fn test_cands(ctx: *context) !bool {
     var l = ctx.seq.items.len - 1;
     var lcp: usize = l - @as(usize, @intCast(ctx.p_cand));
     const limit: usize = @intCast((ctx.c_cand - 1) * ctx.p_cand);
@@ -587,9 +587,9 @@ inline fn largest_power(n: usize) usize {
     return power;
 }
 
-fn noerror_generate_cmbs(len: usize, max_depth: usize, allocator: std.mem.Allocator, pool: *std.Thread.Pool, wg: *std.Thread.WaitGroup) void {
+fn noerror_generate_cmbs(len: usize, max_depth: usize, allocator: std.mem.Allocator, thread_number: usize) void {
     generate_combinations(len, max_depth, allocator) catch |e| std.debug.panic("error: {any}\n", .{e});
-    pool.spawnWg(wg, noerror_worker, .{ 0, len, allocator });
+    worker(thread_number, len, allocator) catch |e| std.debug.panic("error: {any}\n", .{e});
 }
 
 fn noerror_worker(thread_number: usize, len: usize, allocator: std.mem.Allocator) void {
@@ -597,20 +597,16 @@ fn noerror_worker(thread_number: usize, len: usize, allocator: std.mem.Allocator
 }
 
 pub fn main() !void {
-    const length = 56;
-    const thread_count = 1;
-    const max_depth: comptime_int = comptime block: {
-        break :block largest_power(length); // could be read as: return largest power. just to make this comptime and save that 2 microseconds...
-    };
+    const args = std.process.args();
+    _ = args.next();
+
+    const length = try std.fmt.parseInt(usize, args.next().?, 0);
+    const thread_count = try std.fmt.parseInt(usize, args.next().?, 0);
+    const max_depth: usize = largest_power(length);
 
     std.debug.print("[{}] Started. Length: {}, maximum depth: {}, thread count: {}\n", .{ std.time.milliTimestamp(), length, max_depth, thread_count });
 
     const allocator = std.heap.c_allocator;
-
-    // var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    // defer arena.deinit();
-
-    // const allocator = arena.allocator();
 
     try init(length, allocator);
 
@@ -621,7 +617,7 @@ pub fn main() !void {
     try pool.init(.{ .allocator = allocator });
     defer pool.deinit();
 
-    pool.spawnWg(&wait_group, noerror_generate_cmbs, .{ length, max_depth, allocator, &pool, &wait_group });
+    pool.spawnWg(&wait_group, noerror_generate_cmbs, .{ length, max_depth, allocator, 0 });
     for (1..thread_count + 1) |i| {
         pool.spawnWg(&wait_group, noerror_worker, .{ i, length, allocator });
     }
