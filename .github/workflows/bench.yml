@@ -8,18 +8,21 @@ jobs:
       
       - uses: actions/checkout@v4
       - run: zig build --release=fast
-      - run: git clone https://github.com/keizertje/Curling-sequences-bench.git ../
+      - run: git clone https://github.com/keizertje/Curling-sequences-bench.git ${{runner.temp}}/Curling-sequences-bench
       
-      - run: echo "${{github.sha}}:`n`t56@1:`t" >> ../Curling-sequences-bench/results.txt
+      - run: echo "${{github.sha}}:`n`t56@1:`t" >> ${{runner.temp}}/Curling-sequences-bench/results.txt
       - name: Run 56@1
-        run: (Measure-Command {./zig-out/bin/out.exe 56 1 | Out-Default}).ToString() >> ../Curling-sequences-bench/results.txt
+        run: (Measure-Command {./zig-out/bin/out.exe 56 1 | Out-Default}).ToString() >> ${{runner.temp}}/Curling-sequences-bench/results.txt
       - run: echo "`n`t80@1:`t"
       - name: Run 80@1
-        run: (Measure-Command {./zig-out/bin/out.exe 80 1 | Out-Default}).ToString() >> ../Curling-sequences-bench/results.txt
+        run: (Measure-Command {./zig-out/bin/out.exe 80 1 | Out-Default}).ToString() >> ${{runner.temp}}/Curling-sequences-bench/results.txt
       - run: echo "`n`t120@4:`t"
       - name: Run 120@4
-        run: (Measure-Command {./zig-out/bin/out.exe 120 4 | Out-Default}).ToString() >> ../Curling-sequences-bench/results.txt
+        run: (Measure-Command {./zig-out/bin/out.exe 120 4 | Out-Default}).ToString() >> ${{runner.temp}}/Curling-sequences-bench/results.txt
       - run: echo "`n`t180@4:`t"
       - name: Run 160@4
-        run: (Measure-Command {./zig-out/bin/out.exe 160 4 | Out-Default}).ToString() >> ../Curling-sequences-bench/results.txt
+        run: (Measure-Command {./zig-out/bin/out.exe 160 4 | Out-Default}).ToString() >> ${{runner.temp}}/Curling-sequences-bench/results.txt
       - run: echo "`n`n" >> ../Curling-sequences-bench/results.txt
+
+      - run: $time = 
+      - run: git commit -m "commit ${{github.sha}} at $time"
