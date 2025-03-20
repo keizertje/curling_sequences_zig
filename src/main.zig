@@ -618,7 +618,7 @@ pub fn main() !void {
     defer pool.deinit();
 
     pool.spawnWg(&wait_group, noerror_generate_cmbs, .{ length, max_depth, allocator, 0 });
-    for (1..thread_count + 1) |i| {
+    for (1..thread_count) |i| {
         pool.spawnWg(&wait_group, noerror_worker, .{ i, length, allocator });
     }
 
