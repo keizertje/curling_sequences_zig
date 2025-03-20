@@ -2,17 +2,23 @@ on: [push]
 jobs: 
   bench:
     runs-on: windows-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
+      - run: git version
       - run: choco install zig
       - run: zig version
       
       - uses: actions/checkout@v4
+      - run: zig build --release=fast
+      - run: gh repo clone https://github.com/keizertje/Curling-sequences-bench.git ../
       
-      - name: run56@1
-        run: zig build run --release=fast -- 56 1
-      - name: run80@1
+      - run: echo "`n${{github.sha}}:" >> ../Curling-sequences-bench/results.txt
+      - name: Run 56@1
+        run: (Measure-Command {./zig-out/bin/out.exe 56 1 | Out-Default}).ToString() >> ../Curling-sequences-bench/results.txt
+      - name: Run 80@1
         run: zig build run --release=fast -- 80 1
-      - name: run120@6
+      - name: Run 120@6
         run: zig build run --release=fast -- 120 2
-      - name: run180@16
+      - name: Run 180@16
         run: zig build run --release=fast -- 180 4
