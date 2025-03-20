@@ -597,7 +597,9 @@ fn noerror_worker(thread_number: usize, len: usize, allocator: std.mem.Allocator
 }
 
 pub fn main() !void {
-    const args = std.process.args();
+    const allocator = std.heap.c_allocator;
+
+    var args = try std.process.argsWithAllocator(allocator);
     _ = args.next();
 
     const length = try std.fmt.parseInt(usize, args.next().?, 0);
@@ -605,8 +607,6 @@ pub fn main() !void {
     const max_depth: usize = largest_power(length);
 
     std.debug.print("[{}] Started. Length: {}, maximum depth: {}, thread count: {}\n", .{ std.time.milliTimestamp(), length, max_depth, thread_count });
-
-    const allocator = std.heap.c_allocator;
 
     try init(length, allocator);
 
