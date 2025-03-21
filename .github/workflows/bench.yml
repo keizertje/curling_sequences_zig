@@ -37,6 +37,5 @@ jobs:
           token: ${{secrets.PAT}}
       - run: cat ${{runner.temp}}/results.txt >> ./results.txt
       - run: git add ./results.txt
-      - run: $time=& (Get-Date).ToString()
-      - run: git commit -m "commit ${{github.sha}} at $time"
+      - run: git commit -m "commit ${{github.sha}} at $((Get-Date).ToString())"
       - run: git push
