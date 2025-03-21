@@ -1,4 +1,7 @@
-on: [push]
+on: 
+  push:
+    branches:
+      - main
 jobs: 
   bench:
     runs-on: windows-latest
@@ -10,24 +13,24 @@ jobs:
       
       - uses: actions/checkout@v4
       - run: zig build --release=fast
-      - run: git clone https://github.com/keizertje/Curling-sequences-bench.git ${{runner.temp}}/Curling-sequences-bench
       
-      - run: echo "${{github.sha}}:`n`t56@1:`t" >> ${{runner.temp}}/Curling-sequences-bench/results.txt
+      - run: echo "${{github.sha}}:`n`t56@1:`t" >> ${{runner.temp}}/results.txt
       - name: Run 56@2
-        run: (Measure-Command {./zig-out/bin/out.exe 56 2 | Out-Default}).ToString() >> ${{runner.temp}}/Curling-sequences-bench/results.txt
+        run: (Measure-Command {./zig-out/bin/out.exe 56 2 | Out-Default}).ToString() >> ${{runner.temp}}/results.txt
       - run: echo "`t80@1:`t"
       - name: Run 80@3
-        run: (Measure-Command {./zig-out/bin/out.exe 80 3 | Out-Default}).ToString() >> ${{runner.temp}}/Curling-sequences-bench/results.txt
+        run: (Measure-Command {./zig-out/bin/out.exe 80 3 | Out-Default}).ToString() >> ${{runner.temp}}/results.txt
       - run: echo "`t120@4:`t"
       - name: Run 120@4
-        run: (Measure-Command {./zig-out/bin/out.exe 120 4 | Out-Default}).ToString() >> ${{runner.temp}}/Curling-sequences-bench/results.txt
+        run: (Measure-Command {./zig-out/bin/out.exe 120 4 | Out-Default}).ToString() >> ${{runner.temp}}/results.txt
       - run: echo "`t180@4:`t"
       - name: Run 160@4
-        run: (Measure-Command {./zig-out/bin/out.exe 160 4 | Out-Default}).ToString() >> ${{runner.temp}}/Curling-sequences-bench/results.txt
-      - run: echo "`n" >> ${{runner.temp}}/Curling-sequences-bench/results.txt
+        run: (Measure-Command {./zig-out/bin/out.exe 160 4 | Out-Default}).ToString() >> ${{runner.temp}}/results.txt
+      - run: echo "`n" >> ${{runner.temp}}/results.txt
 
-      - run: $time = Get-Date -Format "dd-MM-yyyy HH:mm:ss"
-      - run: cd ${{runner.temp}}/Curling-sequences-bench
-      - run: git add ${{runner.temp}}/Curling-sequences-bench/results.txt
-      - run: git commit -m "commit ${{github.sha}} at $time"
+      - run: git switch results
+      - run: cat ${{runner.temp}}/results.txt >> ./results.txt
+      - run: git add ./results.txt
+      - run: $time = Get-Date -Format "commit ${{github.sha}} at dd-MM-yyyy HH:mm:ss"
+      - run: git commit -m $time
       - run: git push
