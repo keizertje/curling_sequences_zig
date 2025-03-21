@@ -17,19 +17,19 @@ jobs:
       - run: zig version
       - run: zig build --release=fast
       
-      - run: Write-Output "${{github.sha}}:`n`t56@1:`t" -NoNewLine >> ${{runner.temp}}/results.txt
+      - run: Write-Host "${{github.sha}}:`n`t56@1:`t" -NoNewLine 6>> ${{runner.temp}}/results.txt
       - name: Run 56@2
         run: (Measure-Command {./zig-out/bin/out.exe 56 2 | Out-Default}).ToString() >> ${{runner.temp}}/results.txt
-      - run: Write-Output "`t80@1:`t" -NoNewLine >> ${{runner.temp}}/results.txt
+      - run: Write-Host "`t80@1:`t" -NoNewLine 6>> ${{runner.temp}}/results.txt
       - name: Run 80@3
         run: (Measure-Command {./zig-out/bin/out.exe 80 3 | Out-Default}).ToString() >> ${{runner.temp}}/results.txt
-      - run: Write-Output "`t120@4:`t" -NoNewLine >> ${{runner.temp}}/results.txt
+      - run: Write-Host "`t120@4:`t" -NoNewLine 6>> ${{runner.temp}}/results.txt
       - name: Run 120@4
         run: (Measure-Command {./zig-out/bin/out.exe 120 4 | Out-Default}).ToString() >> ${{runner.temp}}/results.txt
-      - run: Write-Output "`t180@4:`t" -NoNewLine >> ${{runner.temp}}/results.txt
+      - run: Write-Host "`t180@4:`t" -NoNewLine 6>> ${{runner.temp}}/results.txt
       - name: Run 160@4
         run: (Measure-Command {./zig-out/bin/out.exe 160 4 | Out-Default}).ToString() >> ${{runner.temp}}/results.txt
-      - run: Write-Output "`n" -NoNewLine >> ${{runner.temp}}/results.txt
+      - run: Write-Host "`n" -NoNewLine 6>> ${{runner.temp}}/results.txt
 
       - uses: actions/checkout@v4
         with:
