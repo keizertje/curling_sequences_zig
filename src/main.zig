@@ -80,6 +80,7 @@ pub fn init(len: usize, allocator: std.mem.Allocator) !void {
     known_tails[128] = 332;
     known_tails[132] = 340;
     known_tails[133] = 342;
+    known_tails[143] = 343;
     known_tails[154] = 356;
     known_tails[176] = 406;
     known_tails[197] = 1668;
@@ -603,8 +604,12 @@ pub fn main() !void {
     _ = args.next();
 
     const length = try std.fmt.parseInt(usize, args.next().?, 0);
-    const thread_count = try std.fmt.parseInt(usize, args.next().?, 0);
+    var thread_count = try std.fmt.parseInt(usize, args.next().?, 0);
     const max_depth: usize = largest_power(length);
+
+    if (thread_count == 0) {
+        thread_count = try std.Thread.getCpuCount();
+    }
 
     std.debug.print("[{}] Started. Length: {}, maximum depth: {}, thread count: {}\n", .{ std.time.milliTimestamp(), length, max_depth, thread_count });
 
