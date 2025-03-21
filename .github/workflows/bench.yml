@@ -36,6 +36,6 @@ jobs:
           ref: 'results'
       - run: cat ${{runner.temp}}/results.txt >> ./results.txt
       - run: git add ./results.txt
-      - run: $time = Get-Date -Format "commit ${{github.sha}} at dd-MM-yyyy HH:mm:ss"
-      - run: git commit -m "$time"
+      - run: $time = Get-Date -Format "dd-MM-yyyy HH:mm:ss"
+      - run: git commit -m "commit ${{github.sha}} at $time"
       - run: git push
