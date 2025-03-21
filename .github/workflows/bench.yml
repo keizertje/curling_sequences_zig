@@ -24,11 +24,11 @@ jobs:
       - name: Run 120@4
         run: (Measure-Command {./zig-out/bin/out.exe 120 4 | Out-Default}).ToString() >> ${{runner.temp}}/results.txt
       - run: echo "`t180@4:`t"
-      - name: Run 160@4
-        run: (Measure-Command {./zig-out/bin/out.exe 160 4 | Out-Default}).ToString() >> ${{runner.temp}}/results.txt
-      - run: echo "`n" >> ${{runner.temp}}/results.txt
+      #- name: Run 160@4
+      #  run: (Measure-Command {./zig-out/bin/out.exe 160 4 | Out-Default}).ToString() >> ${{runner.temp}}/results.txt
+      #- run: echo "`n" >> ${{runner.temp}}/results.txt
 
-      - run: git switch results
+      - run: git checkout results
       - run: cat ${{runner.temp}}/results.txt >> ./results.txt
       - run: git add ./results.txt
       - run: $time = Get-Date -Format "commit ${{github.sha}} at dd-MM-yyyy HH:mm:ss"
