@@ -6,14 +6,15 @@ jobs:
   bench:
     runs-on: windows-latest
     steps:
+      - uses: actions/checkout@v4
+      
       - run: echo ${{secrets.PAT}} | gh auth login --with-token
       - run: gh auth setup-git
       - run: git config user.name ${{github.actor}}
       - run: git config user.email ${{secrets.email}}
+      
       - run: choco install zig
       - run: zig version
-      
-      - uses: actions/checkout@v4
       - run: zig build --release=fast
       
       - run: echo "${{github.sha}}:`n`t56@1:`t" >> ${{runner.temp}}/results.txt
