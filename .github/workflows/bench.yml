@@ -8,6 +8,8 @@ jobs:
     steps:
       - run: echo ${{secrets.PAT}} | gh auth login --with-token
       - run: gh auth setup-git
+      - run: git config user.name ${{github.actor}}
+      - run: git config user.email ${{secrets.email}}
       - run: choco install zig
       - run: zig version
       
@@ -32,7 +34,6 @@ jobs:
         with:
           ref: 'results'
       - run: cat ${{runner.temp}}/results.txt >> ./results.txt
-      - run: git config user.name ${{github.actor}}
       - run: git add ./results.txt
       - run: $time = Get-Date -Format "commit ${{github.sha}} at dd-MM-yyyy HH:mm:ss"
       - run: git commit -m "$time"
