@@ -28,7 +28,9 @@ jobs:
       #  run: (Measure-Command {./zig-out/bin/out.exe 160 4 | Out-Default}).ToString() >> ${{runner.temp}}/results.txt
       #- run: echo "`n" >> ${{runner.temp}}/results.txt
 
-      - run: git checkout results
+      - uses: actions/checkout@v4
+        with:
+          ref: 'results'
       - run: cat ${{runner.temp}}/results.txt >> ./results.txt
       - run: git add ./results.txt
       - run: $time = Get-Date -Format "commit ${{github.sha}} at dd-MM-yyyy HH:mm:ss"
