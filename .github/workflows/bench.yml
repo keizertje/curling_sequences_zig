@@ -9,12 +9,12 @@ jobs:
       - uses: actions/checkout@v4
       
       - run: git config user.name ${{github.actor}}
-      - run: git config user.email ${{secrets.email}}
+      - run: git config user.email ${{ secrets.email }}
       
       - run: zig version
       - run: zig build --release=fast
       
-      - run: echo -en "${{github.sha}}:\n\t56@2:\t" >> ${{runner.temp}}/results.txt
+      - run: echo -en "[${{github.sha}}](https://github.com/keizertje/curling_sequences_zig/commit/${{github.sha}}) at $(date):\n\t56@2:\t" >> ${{runner.temp}}/results.txt
       - name: Run 56@2
         run: env time -f "%e sec" -ao ${{runner.temp}}/results.txt ./zig-out/bin/out 56 2
       - run: echo -en "\t80@3:\t" >> ${{runner.temp}}/results.txt
@@ -31,7 +31,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: 'results'
-          token: ${{secrets.PAT}}
+          token: ${{ secrets.PAT }}
       - run: cat ${{runner.temp}}/results.txt >> ./results.txt
       - run: git add ./results.txt
       - run: git commit -m "commit ${{github.sha}} at $(date)"
