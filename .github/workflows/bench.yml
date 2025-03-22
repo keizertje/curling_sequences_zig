@@ -19,11 +19,11 @@ jobs:
         run: env time -f "%e sec" -ao ${{runner.temp}}/results.txt ./zig-out/bin/out 56 2
       - run: echo -en "\n\n\t80@3:\t" >> ${{runner.temp}}/results.txt
       - name: Run 80@3
-        run: env time -f "%e sec" -ao ${{runner.temp}}/results.txt ./zig-out/bin/out 80 3
+        run: env time -f "%e sec" -ao ${{runner.temp}}/results.txt ./zig-out/bin/out 80 4
       - run: echo -en "\n\n\t120@8:\t" >> ${{runner.temp}}/results.txt
       - name: Run 120@8
         run: env time -f "%e sec" -ao ${{runner.temp}}/results.txt ./zig-out/bin/out 120 8
-      - run: echo -en "\n\n\t180@4:\t" >> ${{runner.temp}}/results.txt
+      - run: echo -en "\n\n\t160@max:\t" >> ${{runner.temp}}/results.txt
       - name: Run 160@max
         run: env time -f "%e sec" -ao ${{runner.temp}}/results.txt ./zig-out/bin/out 160 0
       - run: echo -en "\n\n\n\n" >> ${{runner.temp}}/results.txt
