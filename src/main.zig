@@ -134,9 +134,8 @@ pub fn krul(seq: *v16, period: *usize, len: usize, minimum: i16) i16 {
 }
 
 fn erase(vec: *v16, x: i16) void {
-    // var i: usize = 0;
-    // while (vec.items[i] != x) : (i += 1) {}
-    const i = std.mem.indexOfScalar(i16, vec.items, x).?;
+    var i: usize = 0;
+    while (vec.items[i] != x) : (i += 1) {}
     _ = vec.swapRemove(i);
 }
 
@@ -172,9 +171,8 @@ fn backtracking_step(ctx: *context) !void {
             }
 
             // implementation of std::find
-            // var i: usize = 0;
-            // while (ctx.seq_map.items[@as(usize, @intCast(ctx.seq.getLast())) + ctx.length].items[i] != ctx.seq.items.len - 1) : (i += 1) {}
-            const i = std.mem.indexOfScalar(i16, ctx.seq_map.items[@as(usize, @intCast(ctx.seq.getLast())) + ctx.length].items, @intCast(ctx.seq.items.len - 1)).?;
+            var i: usize = 0;
+            while (ctx.seq_map.items[@as(usize, @intCast(ctx.seq.getLast())) + ctx.length].items[i] != ctx.seq.items.len - 1) : (i += 1) {}
             _ = ctx.seq_map.items[@as(usize, @intCast(ctx.seq.getLast())) + ctx.length].swapRemove(i);
             _ = ctx.seq.pop();
             _ = ctx.periods.pop();
