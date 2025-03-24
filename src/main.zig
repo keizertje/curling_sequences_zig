@@ -247,8 +247,10 @@ fn test_cands(ctx: *context) !bool {
         }
     }
 
-    ctx.seq_new.clearAndFree();
-    ctx.seq_new = try ctx.seq.clone();
+    // ctx.seq_new.clearAndFree();
+    ctx.seq_new.clearRetainingCapacity();
+    try ctx.seq_new.ensureTotalCapacity(ctx.seq.items.len);
+    ctx.seq_new.appendSliceAssumeCapacity(ctx.seq.items);
 
     ctx.pairs.clearRetainingCapacity();
     try ctx.pairs.ensureTotalCapacity(2 * limit);
