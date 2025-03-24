@@ -23,9 +23,9 @@ jobs:
       - run: echo -en "| 120@8 | " >> ${{runner.temp}}/results.txt
       - name: Run 120@8
         run: env time -f "%e sec |" -ao ${{runner.temp}}/results.txt ./zig-out/bin/out 120 8
-      #- run: echo -en "| 160@max | " >> ${{runner.temp}}/results.txt
-      #- name: Run 160@max
-      #  run: env time -f "%e sec |" -ao ${{runner.temp}}/results.txt ./zig-out/bin/out 160 0
+      - run: echo -en "| 160@max | " >> ${{runner.temp}}/results.txt
+      - name: Run 160@max
+        run: env time -f "%e sec |" -ao ${{runner.temp}}/results.txt ./zig-out/bin/out 160 0
       - run: echo -en "\n\n" >> ${{runner.temp}}/results.txt
 
       - uses: actions/checkout@v4
