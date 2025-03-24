@@ -41,7 +41,7 @@
 |160@max | 197.15 sec
 |
 
-[fc7e26b164623dd9763041deb7620ccce04782af](https://github.com/keizertje/curling_sequences_zig/commit/fc7e26b164623dd9763041deb7620ccce04782af) at Mon 24 Mar 14:49:57 UTC 2025:
+| [fc7e26b164623dd9763041deb7620ccce04782af](https://github.com/keizertje/curling_sequences_zig/commit/fc7e26b164623dd9763041deb7620ccce04782af) at Mon 24 Mar 14:49:57 UTC 2025: |
 
 |56@2 | 0.92 sec |
 
@@ -52,9 +52,7 @@
 | 160@max | 197.22 sec |
 
 
-[f36ada88ee0e9a7941b7b5a0258457d5712d78c5](https://github.com/keizertje/curling_sequences_zig/commit/f36ada88ee0e9a7941b7b5a0258457d5712d78c5) at Mon 24 Mar 15:53:20 UTC 2025:
-
-|       |      |
+| [f36ada88ee0e9a7941b7b5a0258457d5712d78c5](https://github.com/keizertje/curling_sequences_zig/commit/f36ada88ee0e9a7941b7b5a0258457d5712d78c5) at Mon 24 Mar 15:53:20 UTC 2025: |
 | --------- | ------------ |
 | 56@2 | 0.92 sec |
 | 80@3 | 4.94 sec |
