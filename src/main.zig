@@ -247,9 +247,8 @@ fn test_cands(ctx: *context) !bool {
         }
     }
 
-    ctx.seq_new.clearRetainingCapacity();
-    try ctx.seq_new.ensureTotalCapacity(ctx.seq.items.len);
-    ctx.seq_new.appendSliceAssumeCapacity(ctx.seq.items);
+    ctx.seq_new.clearAndFree();
+    ctx.seq_new = try ctx.seq.clone();
 
     ctx.pairs.clearRetainingCapacity();
     try ctx.pairs.ensureTotalCapacity(2 * limit);
@@ -267,16 +266,15 @@ fn test_cands(ctx: *context) !bool {
             if (a > b)
                 std.mem.swap(i16, &a, &b);
 
-            ctx.pairs.appendAssumeCapacity(b);
-            ctx.pairs.appendAssumeCapacity(a);
+            try ctx.pairs.append(b);
+            try ctx.pairs.append(a);
             pairs_len += 2;
 
             const p_begin: usize = 0;
             const p_end: usize = pairs_len;
 
             ctx.temp.clearRetainingCapacity();
-            try ctx.temp.ensureTotalCapacity(ctx.seq_new.items.len);
-            ctx.temp.appendAssumeCapacity(a);
+            try ctx.temp.append(a);
             var temp_len: usize = 1;
             var i: usize = 0;
             while (i < temp_len) : (i += 1) {
@@ -284,7 +282,7 @@ fn test_cands(ctx: *context) !bool {
                 var pi: usize = p_begin;
                 while (pi < p_end) : (pi += 2) {
                     if (ctx.pairs.items[pi] == tmp) { // *(pi++) in c++ equals ctx.pairs.items[pi] in zig followed by pi+=1
-                        ctx.temp.appendAssumeCapacity(ctx.pairs.items[pi + 1]); // (that pi+=1 is absorbed into the increment statement (pi+=2 instead of pi+=1))
+                        try ctx.temp.append(ctx.pairs.items[pi + 1]); // (that pi+=1 is absorbed into the increment statement (pi+=2 instead of pi+=1))
                         temp_len += 1;
                     }
                 }
