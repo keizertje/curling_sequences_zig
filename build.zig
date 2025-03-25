@@ -82,7 +82,7 @@ pub fn build(b: *std.Build) void {
     });
 
     const diff_unit_tests = b.addTest(.{
-        .root_source_file = b.path("src/diff.zig"),
+        .root_source_file = b.path("src/benches/diff.zig"),
         .target = target,
         .optimize = optimize,
         .link_libc = true,
@@ -90,13 +90,13 @@ pub fn build(b: *std.Build) void {
     });
 
     const diff_test_unit_tests = b.addTest(.{
-        .root_source_file = b.path("src/diff.zig"),
+        .root_source_file = b.path("src/benches/diff_test.zig"),
         .target = target,
         .optimize = optimize,
         .link_libc = true,
         .filters = test_filters,
     });
-
+    //
     unit_tests.addCSourceFile(.{
         .file = b.path("src/c_src/c_func.c"),
         .flags = CFlags,
