@@ -1,11 +1,12 @@
 # Fastest
 
-| [fc493e9ed971a9be6209c1caf8018a6c1aec2af7](https://github.com/keizertje/curling_sequences_zig/commit/fc493e9ed971a9be6209c1caf8018a6c1aec2af7) at Tue 25 Mar 14:21:58 UTC 2025 | |
+
+| [42c64487c13ecae4284dee33779e3be21415eb20](https://github.com/keizertje/curling_sequences_zig/commit/42c64487c13ecae4284dee33779e3be21415eb20) at Wed 26 Mar 09:01:06 UTC 2025 | |
 |-|-|
-| 56@2 | 0.89 sec |
-| 80@3 | 4.67 sec |
-| 120@8 | 43.09 sec |
-| 160@max | 182.18 sec |
+| 56@2 | 0.82 sec |
+| 80@3 | 4.18 sec |
+| 120@8 | 38.68 sec |
+| 160@max | 170.21 sec |
 
 # Others
 
