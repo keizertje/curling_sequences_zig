@@ -1,6 +1,6 @@
 const std = @import("std");
 
-const N = 100_000_000; // Aantal getallen om te testen
+const N = 5_000_000; // Aantal getallen om te testen
 
 pub fn main() !void {
     const gpa = std.heap.c_allocator;
@@ -37,11 +37,14 @@ pub fn main() !void {
     const end_hash_remove = std.time.nanoTimestamp();
 
     // **BitSet Benchmark**
-    var bitset = try std.DynamicBitSet.initEmpty(gpa, N * 10); // Startgrootte
+    var bitset = try std.DynamicBitSet.initEmpty(gpa, 0); // Startgrootte
     defer bitset.deinit();
 
     const start_bitset_insert = std.time.nanoTimestamp();
     for (numbers.items) |num| {
+        if (bitset.capacity() < num) {
+            try bitset.resize(num + 1, false);
+        }
         bitset.set(num);
     }
     const end_bitset_insert = std.time.nanoTimestamp();

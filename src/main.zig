@@ -38,7 +38,7 @@ const context = struct {
             .temp = v16.init(allocator),
             .seq_map = std.ArrayList(v16).init(allocator),
             // .change_indices = Map(i16, void).init(allocator),
-            .change_indices = std.DynamicBitSet.initEmpty(allocator, 10000) catch unreachable,
+            .change_indices = std.DynamicBitSet.initEmpty(allocator, 0) catch unreachable,
             .grts_mem = Map(i16, v16).init(allocator),
             .best_tails = std.ArrayList(usize).init(allocator),
             .best_grts = std.ArrayList(v16).init(allocator),
@@ -155,7 +155,7 @@ fn backtracking_step(ctx: *context) !void {
         } else {
             const k: i16 = @intCast(ctx.periods.items.len - 1);
             // if (!ctx.change_indices.contains(k)) {
-            if (!ctx.change_indices.isSet(@intCast(k))) {
+            if (!(ctx.change_indices.capacity() > k and ctx.change_indices.isSet(@intCast(k)))) {
                 // try ctx.change_indices.put(k, undefined);
                 ctx.change_indices.set(@intCast(k));
                 ctx.c_cand = ctx.seq.getLast() + 1;
@@ -183,7 +183,7 @@ fn backtracking_step(ctx: *context) !void {
             _ = ctx.seq.pop();
             _ = ctx.periods.pop();
             // if (ctx.change_indices.contains(k + 1)) {
-            if (ctx.change_indices.isSet(@intCast(k + 1))) {
+            if (ctx.change_indices.capacity() > k + 1 and ctx.change_indices.isSet(@intCast(k + 1))) {
                 // _ = ctx.change_indices.remove(k + 1);
                 ctx.change_indices.unset(@intCast(k + 1));
             }
@@ -230,6 +230,7 @@ fn append(ctx: *context) !void {
     ctx.c_cand = 2;
     ctx.p_cand = 1 + @divTrunc(@as(i16, @intCast(tail)), 2);
     // try ctx.change_indices.put(@intCast(tail), undefined);
+    try ctx.change_indices.resize(tail + 1, false);
     ctx.change_indices.set(tail);
     const len = real_grtr_len(ctx);
     if (ctx.best_tails.items[len] < tail) {
@@ -318,7 +319,7 @@ fn test_seq_new(ctx: *context) !bool {
         const curl = krul(ctx.seq_new.items, &period, ctx.length + i, ctx.seq_new.items[ctx.length + i]);
 
         // if (!ctx.change_indices.contains(@intCast(i))) {
-        if (!ctx.change_indices.isSet(i)) {
+        if (!(ctx.change_indices.capacity() > i and ctx.change_indices.isSet(i))) {
             if (curl != ctx.seq_new.items[ctx.length + i]) {
                 return false;
             }
@@ -401,6 +402,9 @@ pub fn worker(thread_number: usize, len: usize, allocator: std.mem.Allocator) !v
             const curl = krul(ctx.seq.items, &period, ctx.length + i - 1, ctx.c_cand);
             if (curl < ctx.c_cand) {
                 // try ctx.change_indices.put(@intCast(i - 1), undefined);
+                if (ctx.change_indices.capacity() < i) {
+                    try ctx.change_indices.resize(i, false);
+                }
                 ctx.change_indices.set(i - 1);
             }
             if (i == ctx.depth) {
@@ -502,6 +506,9 @@ pub fn generate_combinations(len: usize, max_depth: usize, allocator: std.mem.Al
                     try ctx.periods.append(ctx.p_cand);
                     try ctx.seq_map.items[@as(usize, @intCast(ctx.c_cand + @as(i16, @intCast(ctx.length))))].append(@as(i16, @intCast(ctx.length + 1)));
                     // try ctx.change_indices.put(@as(i16, @intCast(i - 1)), undefined);
+                    if (ctx.change_indices.capacity() < i) {
+                        try ctx.change_indices.resize(i, false);
+                    }
                     ctx.change_indices.set(i - 1);
                 } else {
                     invalid = true;
