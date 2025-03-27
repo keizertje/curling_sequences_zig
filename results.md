@@ -86,3 +86,11 @@
 | 160@max | 188.03 sec |
 
 
+| [f6284b919c1a6bd9c78a09e3176dd0f1db404aad](https://github.com/keizertje/curling_sequences_zig/commit/f6284b919c1a6bd9c78a09e3176dd0f1db404aad) at Thu 27 Mar 13:38:29 UTC 2025 | |
+|-|-|
+| 56@2 | 0.79 sec |
+| 80@3 | 4.18 sec |
+| 120@8 | 38.61 sec |
+| 160@max | 169.88 sec |
+
+
