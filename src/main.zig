@@ -171,9 +171,9 @@ fn backtracking_step(ctx: *context) !void {
                         // erase(&ctx.seq_map.items[@as(usize, @intCast(item + @as(i16, @intCast(ctx.length))))], @intCast(i));
                         ctx.seq_map.items[@as(usize, @intCast(item + @as(i16, @intCast(ctx.length))))].unset(i);
                         // try ctx.seq_map.items[@as(usize, @intCast(temp.items[i] + @as(i16, @intCast(ctx.length))))].append(@intCast(i));
-                        if (ctx.seq_map.items[@as(usize, @intCast(temp.items[i] + @as(i16, @intCast(ctx.length))))].capacity() <= i) {
-                            try ctx.seq_map.items[@as(usize, @intCast(temp.items[i] + @as(i16, @intCast(ctx.length))))].resize(i + 1, false);
-                        }
+                        // if (ctx.seq_map.items[@as(usize, @intCast(temp.items[i] + @as(i16, @intCast(ctx.length))))].capacity() <= i) {
+                        //     try ctx.seq_map.items[@as(usize, @intCast(temp.items[i] + @as(i16, @intCast(ctx.length))))].resize(i + 1, false);
+                        // }
                         ctx.seq_map.items[@as(usize, @intCast(temp.items[i] + @as(i16, @intCast(ctx.length))))].set(i); // ensure enough space?
                         ctx.seq.items[i] = temp.items[i];
                     }
