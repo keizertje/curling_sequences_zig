@@ -18,8 +18,7 @@ const context = struct {
     periods: v16,
     pairs: v16,
     temp: v16,
-    // seq_map: std.ArrayList(v16),
-    seq_map: std.ArrayList(std.DynamicBitSet),
+    seq_map: std.ArrayList(v16),
     // change_indices: Map(i16, void),
     change_indices: std.DynamicBitSet,
     grts_mem: Map(i16, v16),
@@ -37,7 +36,7 @@ const context = struct {
             .periods = v16.init(allocator),
             .pairs = v16.init(allocator),
             .temp = v16.init(allocator),
-            .seq_map = std.ArrayList(std.DynamicBitSet).init(allocator),
+            .seq_map = std.ArrayList(v16).init(allocator),
             // .change_indices = Map(i16, void).init(allocator),
             .change_indices = std.DynamicBitSet.initEmpty(allocator, 0) catch unreachable,
             .grts_mem = Map(i16, v16).init(allocator),
@@ -168,13 +167,8 @@ fn backtracking_step(ctx: *context) !void {
                 var temp: v16 = ctx.grts_mem.fetchRemove(k).?.value;
                 for (ctx.seq.items[0..ctx.length], 0..) |item, i| {
                     if (item != temp.items[i]) {
-                        // erase(&ctx.seq_map.items[@as(usize, @intCast(item + @as(i16, @intCast(ctx.length))))], @intCast(i));
-                        ctx.seq_map.items[@as(usize, @intCast(item + @as(i16, @intCast(ctx.length))))].unset(i);
-                        // try ctx.seq_map.items[@as(usize, @intCast(temp.items[i] + @as(i16, @intCast(ctx.length))))].append(@intCast(i));
-                        // if (ctx.seq_map.items[@as(usize, @intCast(temp.items[i] + @as(i16, @intCast(ctx.length))))].capacity() <= i) {
-                        //     try ctx.seq_map.items[@as(usize, @intCast(temp.items[i] + @as(i16, @intCast(ctx.length))))].resize(i + 1, false);
-                        // }
-                        ctx.seq_map.items[@as(usize, @intCast(temp.items[i] + @as(i16, @intCast(ctx.length))))].set(i); // ensure enough space?
+                        erase(&ctx.seq_map.items[@as(usize, @intCast(item + @as(i16, @intCast(ctx.length))))], @intCast(i));
+                        try ctx.seq_map.items[@as(usize, @intCast(temp.items[i] + @as(i16, @intCast(ctx.length))))].append(@intCast(i));
                         ctx.seq.items[i] = temp.items[i];
                     }
                 }
@@ -184,12 +178,8 @@ fn backtracking_step(ctx: *context) !void {
             // implementation of std::find
             // var i: usize = 0;
             // while (ctx.seq_map.items[@as(usize, @intCast(ctx.seq.getLast())) + ctx.length].items[i] != ctx.seq.items.len - 1) : (i += 1) {}
-
-            // const i = std.mem.indexOfScalar(i16, ctx.seq_map.items[@as(usize, @intCast(ctx.seq.getLast())) + ctx.length].items, @intCast(ctx.seq.items.len - 1)).?;
-            // _ = ctx.seq_map.items[@as(usize, @intCast(ctx.seq.getLast())) + ctx.length].swapRemove(i);
-
-            ctx.seq_map.items[@as(usize, @intCast(ctx.seq.getLast())) + ctx.length].unset(ctx.seq.items.len - 1);
-
+            const i = std.mem.indexOfScalar(i16, ctx.seq_map.items[@as(usize, @intCast(ctx.seq.getLast())) + ctx.length].items, @intCast(ctx.seq.items.len - 1)).?;
+            _ = ctx.seq_map.items[@as(usize, @intCast(ctx.seq.getLast())) + ctx.length].swapRemove(i);
             _ = ctx.seq.pop();
             _ = ctx.periods.pop();
             // if (ctx.change_indices.contains(k + 1)) {
@@ -210,21 +200,10 @@ fn real_grtr_len(ctx: *context) usize {
 fn append(ctx: *context) !void {
     var i: usize = 0;
     while (i < ctx.pairs.items.len) : (i += 2) {
-        // for (ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[i + 1] + @as(i16, @intCast(ctx.length))))].items) |x| {
-        //     try ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[i] + @as(i16, @intCast(ctx.length))))].append(x);
-        // }
-        try ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[i] + @as(i16, @intCast(ctx.length))))].resize(@max(
-            ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[i] + @as(i16, @intCast(ctx.length))))].capacity(),
-            ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[i + 1] + @as(i16, @intCast(ctx.length))))].capacity(),
-        ), false);
-        try ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[i + 1] + @as(i16, @intCast(ctx.length))))].resize(@max(
-            ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[i] + @as(i16, @intCast(ctx.length))))].capacity(),
-            ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[i + 1] + @as(i16, @intCast(ctx.length))))].capacity(),
-        ), false);
-        ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[i] + @as(i16, @intCast(ctx.length))))].setUnion(ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[i + 1] + @as(i16, @intCast(ctx.length))))]);
-
-        // ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[i + 1] + @as(i16, @intCast(ctx.length))))].clearRetainingCapacity();
-        ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[i + 1] + @as(i16, @intCast(ctx.length))))].unmanaged.unsetAll();
+        for (ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[i + 1] + @as(i16, @intCast(ctx.length))))].items) |x| {
+            try ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[i] + @as(i16, @intCast(ctx.length))))].append(x);
+        }
+        ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[i + 1] + @as(i16, @intCast(ctx.length))))].clearRetainingCapacity();
     }
     ctx.seq.shrinkRetainingCapacity(ctx.length);
     if (ctx.grts_mem.contains(@intCast(ctx.periods.items.len))) {
@@ -236,21 +215,13 @@ fn append(ctx: *context) !void {
     try ctx.seq.append(ctx.c_cand);
     try ctx.periods.append(ctx.p_cand);
     var seq_len = ctx.seq.items.len;
-    // try ctx.seq_map.items[@as(usize, @intCast(ctx.c_cand)) + ctx.length].append(@intCast(seq_len - 1));
-    if (ctx.seq_map.items[@as(usize, @intCast(ctx.c_cand)) + ctx.length].capacity() <= seq_len - 1) {
-        try ctx.seq_map.items[@as(usize, @intCast(ctx.c_cand)) + ctx.length].resize(seq_len, false);
-    }
-    ctx.seq_map.items[@as(usize, @intCast(ctx.c_cand)) + ctx.length].set(seq_len - 1); // ensure enough space?
+    try ctx.seq_map.items[@as(usize, @intCast(ctx.c_cand)) + ctx.length].append(@intCast(seq_len - 1));
     var period: usize = 0;
     while (true) {
         const curl = krul(ctx.seq.items, &period, seq_len, 2);
         if (curl == 1) break;
         try ctx.seq.append(curl);
-        // try ctx.seq_map.items[@as(usize, @intCast(curl)) + ctx.length].append(@intCast(seq_len));
-        if (ctx.seq_map.items[@as(usize, @intCast(curl)) + ctx.length].capacity() <= seq_len) {
-            try ctx.seq_map.items[@as(usize, @intCast(curl)) + ctx.length].resize(seq_len + 1, false);
-        }
-        ctx.seq_map.items[@as(usize, @intCast(curl)) + ctx.length].set(seq_len); // ensure enough space?
+        try ctx.seq_map.items[@as(usize, @intCast(curl)) + ctx.length].append(@intCast(seq_len));
         seq_len += 1;
         try ctx.periods.append(@intCast(period));
     }
@@ -325,11 +296,7 @@ fn test_cands(ctx: *context) !bool {
                 }
             }
             for (ctx.temp.items) |x| {
-                // for (ctx.seq_map.items[@intCast(x + @as(i16, @intCast(ctx.length)))].items) |ind| {
-                //     ctx.seq_new.items[@intCast(ind)] = b;
-                // }
-                var iter = ctx.seq_map.items[@intCast(x + @as(i16, @intCast(ctx.length)))].iterator(.{});
-                while (iter.next()) |ind| {
+                for (ctx.seq_map.items[@intCast(x + @as(i16, @intCast(ctx.length)))].items) |ind| {
                     ctx.seq_new.items[@intCast(ind)] = b;
                 }
             }
@@ -389,7 +356,7 @@ pub fn worker(thread_number: usize, len: usize, allocator: std.mem.Allocator) !v
     }
     try ctx.seq_map.ensureTotalCapacity(2 * len + 2);
     for (0..2 * len + 2) |_| {
-        try ctx.seq_map.append(try std.DynamicBitSet.initEmpty(allocator, len + 2));
+        try ctx.seq_map.append(v16.init(allocator));
     }
 
     var cmb: v16 = undefined;
@@ -416,16 +383,16 @@ pub fn worker(thread_number: usize, len: usize, allocator: std.mem.Allocator) !v
         }
 
         for (0..ctx.seq_map.items.len) |i| {
-            ctx.seq_map.items[i].unmanaged.unsetAll();
+            ctx.seq_map.items[i].clearRetainingCapacity();
         }
 
         for (0..ctx.length) |j| {
-            ctx.seq_map.items[j].set(j);
+            try ctx.seq_map.items[j].append(@intCast(j));
         }
 
         ctx.periods.clearRetainingCapacity();
         // ctx.change_indices.clearRetainingCapacity();
-        ctx.change_indices.unmanaged.unsetAll();
+        ctx.change_indices.unmanaged.unsetAll(); // ???
 
         for (1..ctx.depth + 1) |i| {
             ctx.c_cand = cmb.items[i * 2 - 1];
@@ -447,28 +414,15 @@ pub fn worker(thread_number: usize, len: usize, allocator: std.mem.Allocator) !v
             _ = try test_cands(&ctx) and try test_seq_new(&ctx);
             var j: usize = 0;
             while (j < ctx.pairs.items.len) : (j += 2) {
-                // for (ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[j + 1] + @as(i16, @intCast(ctx.length))))].items) |x| {
-                //     try ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[j] + @as(i16, @intCast(ctx.length))))].append(x);
-                // }
-                // ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[j + 1] + @as(i16, @intCast(ctx.length))))].clearRetainingCapacity();
-
-                try ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[j] + @as(i16, @intCast(ctx.length))))].resize(@max(
-                    ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[j] + @as(i16, @intCast(ctx.length))))].capacity(),
-                    ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[j + 1] + @as(i16, @intCast(ctx.length))))].capacity(),
-                ), false);
-                try ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[j + 1] + @as(i16, @intCast(ctx.length))))].resize(@max(
-                    ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[j] + @as(i16, @intCast(ctx.length))))].capacity(),
-                    ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[j + 1] + @as(i16, @intCast(ctx.length))))].capacity(),
-                ), false);
-
-                ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[j] + @as(i16, @intCast(ctx.length))))].setUnion(ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[j + 1] + @as(i16, @intCast(ctx.length))))]);
-                ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[j + 1] + @as(i16, @intCast(ctx.length))))].unmanaged.unsetAll();
+                for (ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[j + 1] + @as(i16, @intCast(ctx.length))))].items) |x| {
+                    try ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[j] + @as(i16, @intCast(ctx.length))))].append(x);
+                }
+                ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[j + 1] + @as(i16, @intCast(ctx.length))))].clearRetainingCapacity();
             }
             std.mem.swap(v16, &ctx.seq, &ctx.seq_new);
             try ctx.seq.append(ctx.c_cand);
             try ctx.periods.append(ctx.p_cand);
-            // try ctx.seq_map.items[@as(usize, @intCast(ctx.c_cand)) + ctx.length].append(@intCast(ctx.length + 1));
-            ctx.seq_map.items[@as(usize, @intCast(ctx.c_cand)) + ctx.length].set(ctx.length + 1);
+            try ctx.seq_map.items[@as(usize, @intCast(ctx.c_cand)) + ctx.length].append(@intCast(ctx.length + 1));
         }
 
         try backtracking(&ctx);
@@ -500,7 +454,7 @@ pub fn generate_combinations(len: usize, max_depth: usize, allocator: std.mem.Al
     try ctx.seq.appendNTimes(0, len);
     try ctx.seq_map.ensureTotalCapacity(2 * len + 2);
     for (0..2 * len + 2) |_| {
-        try ctx.seq_map.append(try std.DynamicBitSet.initEmpty(allocator, len + 2));
+        try ctx.seq_map.append(v16.init(allocator));
     }
     try ctx.best_tails.appendNTimes(0, len + 1);
     try ctx.best_grts.ensureTotalCapacity(len + 1);
@@ -526,14 +480,14 @@ pub fn generate_combinations(len: usize, max_depth: usize, allocator: std.mem.Al
                 ctx.seq.items[i] = -@as(i16, @intCast(ctx.length)) + @as(i16, @intCast(i));
             }
             for (0..ctx.seq_map.items.len) |i| {
-                ctx.seq_map.items[i].unmanaged.unsetAll();
+                ctx.seq_map.items[i].clearRetainingCapacity();
             }
             for (0..ctx.length) |j| {
-                ctx.seq_map.items[j].set(j);
+                try ctx.seq_map.items[j].append(@as(i16, @intCast(j)));
             }
             ctx.periods.clearRetainingCapacity();
             // ctx.change_indices.clearRetainingCapacity();
-            ctx.change_indices.unmanaged.unsetAll();
+            ctx.change_indices.unmanaged.unsetAll(); // ???
 
             var invalid: bool = false;
             for (1..ctx.depth) |i| {
@@ -542,28 +496,15 @@ pub fn generate_combinations(len: usize, max_depth: usize, allocator: std.mem.Al
                 if (try test_cands(&ctx) and try test_seq_new(&ctx)) {
                     var j: usize = 0;
                     while (j < ctx.pairs.items.len) : (j += 2) {
-                        // for (ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[j + 1] + @as(i16, @intCast(ctx.length))))].items) |x| {
-                        //     try ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[j] + @as(i16, @intCast(ctx.length))))].append(x);
-                        // }
-                        // ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[j + 1] + @as(i16, @intCast(ctx.length))))].clearRetainingCapacity();
-
-                        try ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[j] + @as(i16, @intCast(ctx.length))))].resize(@max(
-                            ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[j] + @as(i16, @intCast(ctx.length))))].capacity(),
-                            ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[j + 1] + @as(i16, @intCast(ctx.length))))].capacity(),
-                        ), false);
-                        try ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[j + 1] + @as(i16, @intCast(ctx.length))))].resize(@max(
-                            ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[j] + @as(i16, @intCast(ctx.length))))].capacity(),
-                            ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[j + 1] + @as(i16, @intCast(ctx.length))))].capacity(),
-                        ), false);
-
-                        ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[j] + @as(i16, @intCast(ctx.length))))].setUnion(ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[j + 1] + @as(i16, @intCast(ctx.length))))]);
-                        ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[j + 1] + @as(i16, @intCast(ctx.length))))].unmanaged.unsetAll();
+                        for (ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[j + 1] + @as(i16, @intCast(ctx.length))))].items) |x| {
+                            try ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[j] + @as(i16, @intCast(ctx.length))))].append(x);
+                        }
+                        ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[j + 1] + @as(i16, @intCast(ctx.length))))].clearRetainingCapacity();
                     }
                     std.mem.swap(v16, &ctx.seq, &ctx.seq_new);
                     try ctx.seq.append(ctx.c_cand);
                     try ctx.periods.append(ctx.p_cand);
-                    // try ctx.seq_map.items[@as(usize, @intCast(ctx.c_cand + @as(i16, @intCast(ctx.length))))].append(@as(i16, @intCast(ctx.length + 1)));
-                    ctx.seq_map.items[@as(usize, @intCast(ctx.c_cand + @as(i16, @intCast(ctx.length))))].set(ctx.length + 1); // ensure enough space?
+                    try ctx.seq_map.items[@as(usize, @intCast(ctx.c_cand + @as(i16, @intCast(ctx.length))))].append(@as(i16, @intCast(ctx.length + 1)));
                     // try ctx.change_indices.put(@as(i16, @intCast(i - 1)), undefined);
                     if (ctx.change_indices.capacity() < i) {
                         try ctx.change_indices.resize(i, false);
