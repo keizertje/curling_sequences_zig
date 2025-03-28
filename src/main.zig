@@ -247,12 +247,18 @@ fn test_cands(ctx: *context) !bool {
         if (ctx.seq.items[l] != ctx.seq.items[lcp] and (ctx.seq.items[l] | ctx.seq.items[lcp]) > 0) {
             return false;
         }
-        if (lcp > 0) { // last iteration, lcp can't be negative, there may be a faster way
-            l -= 1;
-            lcp -= 1;
-        } else if (lcp == 0) {
+        if (lcp == 0) {
             break;
         }
+        l -= 1;
+        lcp -= 1;
+
+        // if (lcp > 0) { // last iteration, lcp can't be negative, there may be a faster way
+        //     l -= 1;
+        //     lcp -= 1;
+        // } else if (lcp == 0) {
+        //     break;
+        // }
     }
 
     ctx.seq_new.clearAndFree();
@@ -301,12 +307,18 @@ fn test_cands(ctx: *context) !bool {
                 }
             }
         }
-        if (lcp > 0) {
-            l -= 1;
-            lcp -= 1;
-        } else if (lcp == 0) {
+        if (lcp == 0) {
             break;
         }
+        l -= 1;
+        lcp -= 1;
+
+        // if (lcp > 0) {
+        //     l -= 1;
+        //     lcp -= 1;
+        // } else if (lcp == 0) {
+        //     break;
+        // }
     }
     return true;
 }
