@@ -1,4 +1,4 @@
-#include "c_func.h"
+#include "../include/c_func.h"
 #include <stdio.h>
 
 bool diff(const int16_t* p1, const int16_t* p2, int count) {
