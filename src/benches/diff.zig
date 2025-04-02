@@ -6,6 +6,7 @@ const c = @cImport({
     @cInclude("string.h");
     @cInclude("c_func.h");
 });
+const c_trans = @import("c_func.zig");
 
 pub const diff_best = diff_std;
 const testing_fn = diff_c_wrapper;
@@ -49,7 +50,24 @@ fn diff_exp(p1: []const i16, p2: []const i16) bool {
     return false; // this will never be hit
 }
 
-/// spurious wrong results, diff_c_wrapper is faster
+fn diff_exp3(p1: []const i16, p2: []const i16) bool {
+    const count64 = p1.len / 4;
+    const count16 = p1.len % 4;
+
+    for (0..count64) |i| {
+        if (std.mem.bytesToValue(u64, p1[i * 4 .. i * 4 + 4]) != std.mem.bytesToValue(u64, p2[i * 4 .. i * 4 + 4])) {
+            return true;
+        }
+    }
+
+    for (0..count16) |i| {
+        if (p1[4 * count64 + i] != p2[4 * count64 + i]) {
+            return true;
+        }
+    }
+    return false;
+}
+
 fn diff_fast(p1: []const i16, p2: []const i16, comptime len: usize) bool {
     const TYPE = @Type(.{ .int = .{
         .signedness = .unsigned,
@@ -79,6 +97,10 @@ fn diff_fast2(p1: []const i16, p2: []const i16, comptime len: usize) bool {
 
 fn diff_c_wrapper(p1: []const i16, p2: []const i16) bool {
     return c.memcmp(p1.ptr, p2.ptr, @as(c_ulonglong, @intCast(p1.len)) * 2) != 0;
+}
+
+fn diff_c_trans_wrapper(p1: []const i16, p2: []const i16) bool {
+    return c_trans.diff(p1.ptr, p2.ptr, p1.len);
 }
 
 fn benchmark(comptime iterations: usize, comptime size: usize) void {

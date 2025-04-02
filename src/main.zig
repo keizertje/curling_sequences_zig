@@ -48,7 +48,7 @@ const context = struct {
 
 var known_tails: [390]usize = undefined;
 
-const diff = @import("benches/diff.zig").diff_best;
+const krul = @import("benches/krul.zig").krul_stable;
 
 pub fn init(len: usize, allocator: std.mem.Allocator) !void {
     g_best_tails = try std.ArrayList(usize).initCapacity(allocator, len + 1);
@@ -98,38 +98,26 @@ pub fn init(len: usize, allocator: std.mem.Allocator) !void {
 //     return !std.mem.eql(i16, p1, p2); // maybe there are faster ways
 // }
 
-// fn diff_fast(p1: []const i16, p2: []const i16, comptime len: usize) bool {
-//     const TYPE = @Type(.{ .int = .{
-//         .signedness = .unsigned,
-//         .bits = len,
-//     } });
-
-//     const v1 = std.mem.bytesAsValue(TYPE, p1);
-//     const v2 = std.mem.bytesAsValue(TYPE, p2);
-
-//     return v1 != v2;
+// pub fn krul(seq: []const i16, period: *usize, len: usize, minimum: i16) i16 {
+//     var curl: i16 = minimum - 1;
+//     var limit = @divTrunc(len, @as(usize, @intCast(minimum)));
+//     var i: usize = 1;
+//     while (i <= limit) : (i += 1) {
+//         const p1: []const i16 = seq[len - i .. len];
+//         var freq: usize = 2;
+//         while (freq * i <= len) : (freq += 1) {
+//             if (diff(p1, seq[len - freq * i .. len - freq * i + i])) {
+//                 break;
+//             }
+//         }
+//         if (curl < freq - 1) {
+//             curl = @intCast(freq - 1);
+//             limit = @divTrunc(len, @as(usize, @intCast(curl + 1)));
+//             period.* = i;
+//         }
+//     }
+//     return curl;
 // }
-
-pub fn krul(seq: []const i16, period: *usize, len: usize, minimum: i16) i16 {
-    var curl: i16 = minimum - 1;
-    var limit = @divTrunc(len, @as(usize, @intCast(minimum)));
-    var i: usize = 1;
-    while (i <= limit) : (i += 1) {
-        const p1: []const i16 = seq[len - i .. len];
-        var freq: usize = 2;
-        while (freq * i <= len) : (freq += 1) {
-            if (diff(p1, seq[len - freq * i .. len - freq * i + i])) {
-                break;
-            }
-        }
-        if (curl < freq - 1) {
-            curl = @intCast(freq - 1);
-            limit = @divTrunc(len, @as(usize, @intCast(curl + 1)));
-            period.* = i;
-        }
-    }
-    return curl;
-}
 
 fn erase(vec: *v16, x: i16) void {
     // var i: usize = 0;
