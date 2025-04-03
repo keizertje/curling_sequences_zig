@@ -149,6 +149,7 @@ fn backtracking_step(ctx: *context) !void {
                 ctx.p_cand = ctx.periods.getLast() + 1;
 
                 var temp: v16 = ctx.grts_mem.fetchRemove(k).?.value;
+                defer temp.deinit();
                 for (ctx.seq.items[0..ctx.length], 0..) |item, i| {
                     if (item != temp.items[i]) {
                         erase(&ctx.seq_map.items[@as(usize, @intCast(item + @as(i16, @intCast(ctx.length))))], @intCast(i));
@@ -156,7 +157,6 @@ fn backtracking_step(ctx: *context) !void {
                         ctx.seq.items[i] = temp.items[i];
                     }
                 }
-                temp.deinit();
             }
 
             // implementation of std::find
@@ -239,7 +239,7 @@ fn test_cands(ctx: *context) !bool {
         }
     }
 
-    ctx.seq_new.clearAndFree();
+    ctx.seq_new.deinit();
     ctx.seq_new = try ctx.seq.clone();
 
     ctx.pairs.clearRetainingCapacity();
