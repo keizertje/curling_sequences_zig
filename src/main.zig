@@ -353,7 +353,7 @@ pub fn worker(thread_number: usize, len: usize, allocator: std.mem.Allocator) !v
     }
     try ctx.seq_map.ensureTotalCapacity(2 * len + 2);
     for (0..2 * len + 2) |_| {
-        try ctx.seq_map.append(v16.init(allocator));
+        try ctx.seq_map.append(v16.initCapacity(allocator, 10));
     }
 
     var cmb: v16 = undefined;
@@ -451,7 +451,7 @@ pub fn generate_combinations(len: usize, max_depth: usize, allocator: std.mem.Al
     try ctx.seq.appendNTimes(0, len);
     try ctx.seq_map.ensureTotalCapacity(2 * len + 2);
     for (0..2 * len + 2) |_| {
-        try ctx.seq_map.append(v16.init(allocator));
+        try ctx.seq_map.append(v16.initCapacity(allocator, 10));
     }
     try ctx.best_tails.appendNTimes(0, len + 1);
     try ctx.best_grts.ensureTotalCapacity(len + 1);
