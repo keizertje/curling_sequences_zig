@@ -8,6 +8,16 @@
 | 120@8 | 39.05 sec |
 | 160@max | 169.96 sec |
 
+# C++
+
+
+| [d607964dc493247d8f655a3139f3e1aafbe339c9](https://github.com/StevenCellist/Curling-sequences-dev/commit/d607964dc493247d8f655a3139f3e1aafbe339c9) at Dec 23, 2022 | |
+|-|-|
+| 56@2 | 0.79 sec |
+| 80@3 | 5.60 sec |
+| 120@8 | 41.79 sec |
+| 160@max | 180.28 sec |
+
 # Others
 
 
