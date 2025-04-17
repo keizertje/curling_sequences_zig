@@ -117,19 +117,15 @@ pub fn krul(seq: []const i16, period: *usize, len: usize, minimum: i16) i16 {
     while (i <= limit) : (i += 1) {
         const p1: []const i16 = seq[len - i .. len];
         var freq: usize = 2;
-        while (true) : (freq += 1) {
-            if (freq * i > len) {
+        while (freq * i <= len) : (freq += 1) {
+            if (diff(p1, seq[len - freq * i .. len - freq * i + i])) {
                 break;
             }
-            const p2: []const i16 = seq[len - freq * i .. len - freq * i + i];
-            if (diff(p1, p2)) {
-                break;
-            }
-            if (curl < freq) {
-                curl = @intCast(freq);
-                limit = @divTrunc(len, @as(usize, @intCast(curl + 1)));
-                period.* = i;
-            }
+        }
+        if (curl < freq - 1) {
+            curl = @intCast(freq - 1);
+            limit = @divTrunc(len, @as(usize, @intCast(curl + 1)));
+            period.* = i;
         }
     }
     return curl;
