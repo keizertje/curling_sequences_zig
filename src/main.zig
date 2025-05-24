@@ -2,6 +2,19 @@ const std = @import("std");
 const v16 = std.ArrayList(i16);
 const Map = std.AutoHashMap;
 
+var outmutex = std.Thread.Mutex{};
+const output_writer = std.io.getStdOut().writer();
+fn output(comptime pattern: []const u8, args: anytype) !void {
+    outmutex.lock();
+    defer outmutex.unlock();
+
+    // std.log.debug(pattern, args); // seems not to output anything
+
+    // comment things out based on your needs
+    // std.debug.print(pattern, args);
+    try output_writer.print(pattern, args);
+}
+
 var queue: std.fifo.LinearFifo(v16, .Dynamic) = undefined;
 var g_best_tails: std.ArrayList(usize) = undefined;
 var g_best_grts: std.ArrayList(v16) = undefined;
@@ -340,7 +353,7 @@ pub fn backtracking(ctx: *context) !void {
 
 pub fn worker(thread_number: usize, len: usize, allocator: std.mem.Allocator) !void {
     const t1 = std.time.milliTimestamp();
-    std.debug.print("[{}] Thread {} started!\n", .{ t1, thread_number });
+    try output("[{}] Thread {} started!\n", .{ t1, thread_number });
 
     var ctx = context.init(allocator);
     ctx.length = len;
@@ -442,7 +455,7 @@ pub fn worker(thread_number: usize, len: usize, allocator: std.mem.Allocator) !v
     }
 
     const t2 = std.time.milliTimestamp();
-    std.debug.print("[{}] Thread {} finished, duration: {} ms\n", .{ t2, thread_number, t2 - t1 });
+    try output("[{}] Thread {} finished, duration: {} ms\n", .{ t2, thread_number, t2 - t1 });
 }
 
 pub fn generate_combinations(len: usize, max_depth: usize, allocator: std.mem.Allocator) !void {
@@ -566,11 +579,11 @@ pub fn generate_combinations(len: usize, max_depth: usize, allocator: std.mem.Al
         try queue.writeItem(try cmb.clone());
     }
 
-    std.debug.print("[{}] Finished generating combinations\n", .{std.time.milliTimestamp()});
+    try output("[{}] Finished generating combinations\n", .{std.time.milliTimestamp()});
 }
 
-pub fn log_results(max_dephts: usize) void {
-    std.debug.print("[{}] Logging results:\n", .{std.time.milliTimestamp()});
+pub fn log_results(max_dephts: usize) !void {
+    try output("[{}] Logging results:\n", .{std.time.milliTimestamp()});
 
     var record: usize = 0;
     for (0..g_best_tails.items.len) |i| {
@@ -580,14 +593,14 @@ pub fn log_results(max_dephts: usize) void {
                 continue;
             }
             if (i > known_tails.len) {
-                std.debug.print("NEW: ", .{});
+                try output("NEW: ", .{});
             }
             if (known_tails[i] != record) {
-                std.debug.print("!!!: ", .{});
+                try output("!!!: ", .{});
             } else {
-                std.debug.print("OLD: ", .{});
+                try output("OLD: ", .{});
             }
-            std.debug.print("{}: {}, {any}\n", .{ i, record, g_best_grts.items[i].items[0..i] });
+            try output("{}: {}, {any}\n", .{ i, record, g_best_grts.items[i].items[0..i] });
         }
     }
 }
@@ -625,7 +638,7 @@ pub fn main() !void {
         thread_count = try std.Thread.getCpuCount();
     }
 
-    std.debug.print("[{}] Started. Length: {}, maximum depth: {}, thread count: {}\n", .{ std.time.milliTimestamp(), length, max_depth, thread_count });
+    try output("[{}] Started. Length: {}, maximum depth: {}, thread count: {}\n", .{ std.time.milliTimestamp(), length, max_depth, thread_count });
 
     try init(length, allocator);
 
@@ -643,7 +656,7 @@ pub fn main() !void {
 
     wait_group.wait();
 
-    std.debug.print("{}\n", .{queue.readableLength()});
+    try output("{}\n", .{queue.readableLength()});
 
-    log_results(0);
+    try log_results(0);
 }
