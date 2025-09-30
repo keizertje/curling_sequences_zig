@@ -554,13 +554,13 @@ pub fn generate_combinations(len: usize, max_depth: usize, allocator: std.mem.Al
             }
 
             if (recalc) {
-                var sum: i16 = cmb.items[1] * cmb.items[1] * cmb.items[2];
+                var sum: i32 = cmb.items[1] * cmb.items[1] * cmb.items[2];
                 depth = 1;
                 while (depth < max_depth) : (depth += 1) {
                     if (sum > max_depth * max_depth) {
                         break;
                     }
-                    sum += @as(i16, @intCast(depth)) * cmb.items[depth * 2 + 1] * cmb.items[depth * 2 + 2];
+                    sum += @as(i32, @intCast(depth)) * cmb.items[depth * 2 + 1] * cmb.items[depth * 2 + 2];
                 }
                 if (depth == 1 and sum <= ctx.length) {
                     depth = 2;
