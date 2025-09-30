@@ -451,22 +451,22 @@ pub fn generate_combinations(len: usize, max_depth: usize, allocator: std.mem.Al
     try ctx.seq.appendNTimes(0, len);
     try ctx.seq_map.ensureTotalCapacity(2 * len + 2);
     for (0..2 * len + 2) |_| {
-        try ctx.seq_map.append(try v16.initCapacity(allocator, 10));
+        try ctx.seq_map.append(try v16.initCapacity(allocator, 10)); // assume capacity
     }
     try ctx.best_tails.appendNTimes(0, len + 1);
     try ctx.best_grts.ensureTotalCapacity(len + 1);
     for (0..len + 1) |i| {
-        try ctx.best_grts.append(try v16.initCapacity(allocator, len));
-        try ctx.best_grts.items[i].appendNTimes(0, len);
+        try ctx.best_grts.append(try v16.initCapacity(allocator, len)); // assume capacity
+        try ctx.best_grts.items[i].appendNTimes(0, len); // assume capacity
     }
 
     var depth = max_depth;
     var cmb = try v16.initCapacity(allocator, 1 + 2 * max_depth);
-    try cmb.appendNTimes(0, 1 + 2 * max_depth);
-    cmb.items[0] = @as(i16, @intCast(max_depth));
-    for (1..max_depth + 1) |i| {
-        cmb.items[2 * i - 1] = 2;
-        cmb.items[2 * i] = 1;
+    try cmb.appendNTimes(0, 1 + 2 * max_depth); //
+    cmb.items[0] = @as(i16, @intCast(max_depth)); //
+    for (1..max_depth + 1) |i| { // immediate append assume capacity
+        cmb.items[2 * i - 1] = 2; //
+        cmb.items[2 * i] = 1; //
     }
 
     while (cmb.items[1] <= ctx.length) {
@@ -484,7 +484,7 @@ pub fn generate_combinations(len: usize, max_depth: usize, allocator: std.mem.Al
             }
             ctx.periods.clearRetainingCapacity();
             // ctx.change_indices.clearRetainingCapacity();
-            ctx.change_indices.unmanaged.unsetAll(); // ???
+            ctx.change_indices.unmanaged.unsetAll(); // ??? ???
 
             var invalid: bool = false;
             for (1..ctx.depth) |i| {
@@ -503,9 +503,9 @@ pub fn generate_combinations(len: usize, max_depth: usize, allocator: std.mem.Al
                     try ctx.periods.append(ctx.p_cand);
                     try ctx.seq_map.items[@as(usize, @intCast(ctx.c_cand + @as(i16, @intCast(ctx.length))))].append(@as(i16, @intCast(ctx.length + 1)));
                     // try ctx.change_indices.put(@as(i16, @intCast(i - 1)), undefined);
-                    if (ctx.change_indices.capacity() < i) {
-                        try ctx.change_indices.resize(i, false);
-                    }
+                    if (ctx.change_indices.capacity() < i) { //
+                        try ctx.change_indices.resize(i, false); // nessesary?
+                    } //
                     ctx.change_indices.set(i - 1);
                 } else {
                     invalid = true;
