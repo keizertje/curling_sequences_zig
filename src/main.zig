@@ -635,7 +635,7 @@ pub fn main() !void {
     const max_depth: usize = largest_power(length);
 
     if (args.next()) |filename| {
-        output_writer = try std.fs.cwd().createFileZ(filename, .{ .truncate = true, .write = true }).writer();
+        output_writer = try std.fs.cwd().createFileZ(filename, .{ .truncate = true }).writer();
     }
 
     if (thread_count == 0) {
@@ -659,8 +659,6 @@ pub fn main() !void {
     }
 
     wait_group.wait();
-
-    try output("{}\n", .{queue.readableLength()});
 
     try log_results(0);
 }
