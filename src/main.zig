@@ -2,8 +2,10 @@ const std = @import("std");
 const v16 = std.ArrayList(i16);
 const Map = std.AutoHashMap;
 
+const human_readable_output: bool = false;
+
 var outmutex = std.Thread.Mutex{};
-const output_writer = std.io.getStdOut().writer();
+var output_writer: ?std.fs.File.Writer = null; // to be initialized in main
 fn output(comptime pattern: []const u8, args: anytype) !void {
     outmutex.lock();
     defer outmutex.unlock();
@@ -12,7 +14,11 @@ fn output(comptime pattern: []const u8, args: anytype) !void {
 
     // comment things out based on your needs
     // std.debug.print(pattern, args);
-    try output_writer.print(pattern, args);
+    if (human_readable_output) {
+        try output_writer.?.print(pattern, args);
+    } else {
+        try output_writer.?.print("{any}\n", .{args});
+    }
 }
 
 var queue: std.fifo.LinearFifo(v16, .Dynamic) = undefined;
@@ -352,8 +358,8 @@ pub fn backtracking(ctx: *context) !void {
 }
 
 pub fn worker(thread_number: usize, len: usize, allocator: std.mem.Allocator) !void {
-    const t1 = std.time.milliTimestamp();
-    try output("[{}] Thread {} started!\n", .{ t1, thread_number });
+    const t0 = std.time.milliTimestamp();
+    try output("[{}] Thread {} started!\n", .{ t0, thread_number });
 
     var ctx = context.init(allocator);
     ctx.length = len;
@@ -384,6 +390,8 @@ pub fn worker(thread_number: usize, len: usize, allocator: std.mem.Allocator) !v
                 break;
             }
         }
+
+        const t1 = std.time.milliTimestamp();
 
         ctx.depth = @intCast(cmb.items[0]);
 
@@ -439,6 +447,9 @@ pub fn worker(thread_number: usize, len: usize, allocator: std.mem.Allocator) !v
         while (ctx.periods.items.len >= ctx.depth) {
             try backtracking(&ctx);
         }
+
+        const t2 = std.time.milliTimestamp();
+        try output("[{}] Thread {} finished working on combination {any}, duration: {} ms\n", .{ t2, thread_number, cmb.items, t2 - t1 });
     }
 
     {
@@ -454,8 +465,8 @@ pub fn worker(thread_number: usize, len: usize, allocator: std.mem.Allocator) !v
         }
     }
 
-    const t2 = std.time.milliTimestamp();
-    try output("[{}] Thread {} finished, duration: {} ms\n", .{ t2, thread_number, t2 - t1 });
+    const t3 = std.time.milliTimestamp();
+    try output("[{}] Thread {} finished, duration: {} ms\n", .{ t3, thread_number, t3 - t0 });
 }
 
 pub fn generate_combinations(len: usize, max_depth: usize, allocator: std.mem.Allocator) !void {
@@ -635,7 +646,9 @@ pub fn main() !void {
     const max_depth: usize = largest_power(length);
 
     if (args.next()) |filename| {
-        output_writer = try std.fs.cwd().createFileZ(filename, .{ .truncate = true }).writer();
+        output_writer = (try std.fs.cwd().createFileZ(filename, .{ .truncate = true })).writer();
+    } else {
+        output_writer = std.io.getStdOut().writer();
     }
 
     if (thread_count == 0) {
