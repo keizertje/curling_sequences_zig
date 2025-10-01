@@ -634,6 +634,10 @@ pub fn main() !void {
     var thread_count = try std.fmt.parseInt(usize, args.next().?, 0);
     const max_depth: usize = largest_power(length);
 
+    if (args.next()) |filename| {
+        output_writer = try std.fs.cwd().createFileZ(filename, .{ .truncate = true, .write = true }).writer();
+    }
+
     if (thread_count == 0) {
         thread_count = try std.Thread.getCpuCount();
     }
