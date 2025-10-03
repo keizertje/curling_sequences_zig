@@ -4,7 +4,7 @@ const alloc = std.testing.allocator;
 const c = @cImport({
     @cInclude("stdlib.h");
     @cInclude("string.h");
-    @cInclude("C:\\Users\\Administrator\\OneDrive\\krul\\src\\benches\\c_func.h");
+    // @cInclude("C:\\Users\\Administrator\\OneDrive\\krul\\src\\benches\\c_func.h");
 });
 const c_trans = @import("c_func.zig");
 
@@ -126,7 +126,9 @@ fn diff_c_wrapper(p1: []const i16, p2: []const i16) bool {
 }
 
 fn custom_c_diff_wrapper(p1: []const i16, p2: []const i16) bool {
-    return c.diff(p1.ptr, p2.ptr, @as(c_int, @intCast(p1.len)) * 2);
+    // return c.diff(p1.ptr, p2.ptr, @as(c_int, @intCast(p1.len)) * 2);
+    _ = &p1;
+    _ = &p2;
 }
 
 fn diff_c_trans_wrapper(p1: []const i16, p2: []const i16) bool {
