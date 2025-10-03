@@ -4,14 +4,15 @@ const alloc = std.testing.allocator;
 const c = @cImport({
     @cInclude("stdlib.h");
     @cInclude("string.h");
-    @cInclude("c_func.h");
+    @cInclude("C:\\Users\\Administrator\\OneDrive\\krul\\src\\benches\\c_func.h");
 });
 const c_trans = @import("c_func.zig");
 
 pub const diff_best = diff_std;
-const testing_fn = diff_c_wrapper;
+const testing_fn = diff_exp5;
 
-const diff_exp2 = @import("diff.zig").diff_exp2;
+const diff_exp2 = @import("diff_test.zig").diff_exp2;
+const diff_exp4 = @import("diff_test.zig").diff_exp4;
 
 fn diff_std(p1: []const i16, p2: []const i16) bool {
     return !std.mem.eql(i16, p1, p2);
@@ -68,6 +69,31 @@ fn diff_exp3(p1: []const i16, p2: []const i16) bool {
     return false;
 }
 
+fn diff_exp5(p1: []const i16, p2: []const i16) bool {
+    const count1024 = p1.len / 64;
+    const count128 = (p1.len % 64) / 8;
+    const count16 = p1.len % 8;
+
+    for (0..count1024) |i| {
+        if (std.mem.bytesToValue(u1024, p1[i * 64 .. i * 64 + 64]) != std.mem.bytesToValue(u1024, p2[i * 64 .. i * 64 + 64])) {
+            return true;
+        }
+    }
+
+    for (0..count128) |i| {
+        if (std.mem.bytesToValue(u128, p1[8 * count1024 + i * 8 .. 8 * count1024 + i * 8 + 8]) != std.mem.bytesToValue(u128, p2[8 * count1024 + i * 8 .. 8 * count1024 + i * 8 + 8])) {
+            return true;
+        }
+    }
+
+    for (0..count16) |i| {
+        if (p1[8 * count1024 + 8 * count128 + i] != p2[8 * count1024 + 8 * count128 + i]) {
+            return true;
+        }
+    }
+    return false;
+}
+
 fn diff_fast(p1: []const i16, p2: []const i16, comptime len: usize) bool {
     const TYPE = @Type(.{ .int = .{
         .signedness = .unsigned,
@@ -97,6 +123,10 @@ fn diff_fast2(p1: []const i16, p2: []const i16, comptime len: usize) bool {
 
 fn diff_c_wrapper(p1: []const i16, p2: []const i16) bool {
     return c.memcmp(p1.ptr, p2.ptr, @as(c_ulonglong, @intCast(p1.len)) * 2) != 0;
+}
+
+fn custom_c_diff_wrapper(p1: []const i16, p2: []const i16) bool {
+    return c.diff(p1.ptr, p2.ptr, @as(c_int, @intCast(p1.len)) * 2);
 }
 
 fn diff_c_trans_wrapper(p1: []const i16, p2: []const i16) bool {

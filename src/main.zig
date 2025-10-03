@@ -2,7 +2,7 @@ const std = @import("std");
 const v16 = std.ArrayList(i16);
 const Map = std.AutoHashMap;
 
-const human_readable_output: bool = false;
+const human_readable_output: bool = true;
 
 var outmutex = std.Thread.Mutex{};
 var output_writer: ?std.fs.File.Writer = null; // to be initialized in main
@@ -129,26 +129,28 @@ pub fn init(len: usize, allocator: std.mem.Allocator) !void {
 //     return v1 != v2;
 // }
 
-pub fn krul(seq: []const i16, period: *usize, len: usize, minimum: i16) i16 {
-    var curl: i16 = minimum - 1;
-    var limit = @divTrunc(len, @as(usize, @intCast(minimum)));
-    var i: usize = 1;
-    while (i <= limit) : (i += 1) {
-        const p1: []const i16 = seq[len - i .. len];
-        var freq: usize = 2;
-        while (freq * i <= len) : (freq += 1) {
-            if (diff(p1, seq[len - freq * i .. len - freq * i + i])) {
-                break;
-            }
-        }
-        if (curl < freq - 1) {
-            curl = @intCast(freq - 1);
-            limit = @divTrunc(len, @as(usize, @intCast(curl + 1)));
-            period.* = i;
-        }
-    }
-    return curl;
-}
+// pub fn krul(seq: []const i16, period: *usize, len: usize, minimum: i16) i16 {
+//     var curl: i16 = minimum - 1;
+//     var limit = @divTrunc(len, @as(usize, @intCast(minimum)));
+//     var i: usize = 1;
+//     while (i <= limit) : (i += 1) {
+//         const p1: []const i16 = seq[len - i .. len];
+//         var freq: usize = 2;
+//         while (freq * i <= len) : (freq += 1) {
+//             if (diff(p1, seq[len - freq * i .. len - freq * i + i])) {
+//                 break;
+//             }
+//         }
+//         if (curl < freq - 1) {
+//             curl = @intCast(freq - 1);
+//             limit = @divTrunc(len, @as(usize, @intCast(curl + 1)));
+//             period.* = i;
+//         }
+//     }
+//     return curl;
+// }
+
+const krul = @import("benches/krul.zig").krul_stable;
 
 fn erase(vec: *v16, x: i16) void {
     // var i: usize = 0;
@@ -392,6 +394,7 @@ pub fn worker(thread_number: usize, len: usize, allocator: std.mem.Allocator) !v
         }
 
         const t1 = std.time.milliTimestamp();
+        _ = &t1;
 
         ctx.depth = @intCast(cmb.items[0]);
 
@@ -449,7 +452,8 @@ pub fn worker(thread_number: usize, len: usize, allocator: std.mem.Allocator) !v
         }
 
         const t2 = std.time.milliTimestamp();
-        try output("[{}] Thread {} finished working on combination {any}, duration: {} ms\n", .{ t2, thread_number, cmb.items, t2 - t1 });
+        _ = &t2;
+        // try output("[{}] Thread {} finished working on combination {any}, duration: {} ms\n", .{ t2, thread_number, cmb.items, t2 - t1 });
     }
 
     {

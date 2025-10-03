@@ -72,6 +72,72 @@ pub fn krul_exp(seq: []const i16, period: *usize, len: usize, minimum: i16) i16 
     return curl;
 }
 
+// still draft
+pub fn krul_exp3(seq: []const i16, period: *usize, len: usize, minimum: i16) i16 {
+    var curl: i16 = minimum - 1;
+    var limit = @divTrunc(len, @as(usize, @intCast(minimum)));
+    var i: usize = 1;
+    switch (limit) {
+        0...15 => {
+            while (i <= limit) : (i += 1) {
+                const p1: []const i16 = seq[len - i .. len];
+                var freq: usize = 2;
+                while (freq * i <= len) : (freq += 1) {
+                    if (diff(p1, seq[len - freq * i .. len - freq * i + i])) {
+                        break;
+                    }
+                }
+                if (curl < freq - 1) {
+                    curl = @intCast(freq - 1);
+                    limit = @divTrunc(len, @as(usize, @intCast(curl + 1)));
+                    period.* = i;
+                }
+            }
+            return curl;
+        },
+        16...63 => {},
+        64...255 => {},
+        else => {},
+    }
+
+    while (i <= limit) : (i += 1) {
+        const p1: []const i16 = seq[len - i .. len];
+        var freq: usize = 2;
+        while (freq * i <= len) : (freq += 1) {
+            if (diff(p1, seq[len - freq * i .. len - freq * i + i])) {
+                break;
+            }
+        }
+        if (curl < freq - 1) {
+            curl = @intCast(freq - 1);
+            limit = @divTrunc(len, @as(usize, @intCast(curl + 1)));
+            period.* = i;
+        }
+    }
+    return curl;
+}
+
+fn krul_exp4(seq: []const i16, period: *usize, len: usize, minimum: i16) i16 {
+    var curl: i16 = minimum - 1;
+    var limit = @divTrunc(len, @as(usize, @intCast(minimum)));
+    var i: usize = 1;
+    while (i <= limit) : (i += 1) {
+        const p1: []const i16 = seq[len - i .. len];
+        var freq: usize = 2;
+        while (freq * i <= len) : (freq += 1) {
+            if (diff(p1, seq[len - freq * i .. len - freq * i + i])) {
+                break;
+            }
+        }
+        if (curl < freq - 1) {
+            curl = @intCast(freq - 1);
+            limit = @divTrunc(len, @as(usize, @intCast(curl + 1)));
+            period.* = i;
+        }
+    }
+    return curl;
+}
+
 fn generateSemiRandomSequence(allocator: std.mem.Allocator, len: usize, pattern_len: usize) ![]i16 {
     var seq = try allocator.alloc(i16, len);
     var rng = std.Random.DefaultPrng.init(@as(u32, @truncate(@as(u128, @bitCast(std.time.nanoTimestamp())))));
@@ -92,41 +158,49 @@ pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
 
-    const dataset_sizes = [_]usize{ 100, 500, 1000, 5000 };
-    const pattern_lengths = [_]usize{ 10, 50, 100, 250 }; // Verschillende patronen
+    const dataset_sizes = [_]usize{ 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 200, 300, 400, 500, 1000, 5000 };
+    const pattern_lengths = [_]usize{ 1, 2, 1, 2, 3, 2, 2, 3, 2, 4, 3, 7, 50, 100, 150, 250 }; // Verschillende patronen
 
-    const iterations = 5000; // Aantal herhalingen per dataset
+    const different_sequences = 70; // Aantal verschillende sequenties per dataset
+    const iterations = 1500; // Aantal herhalingen per dataset
 
     for (dataset_sizes, pattern_lengths) |size, pattern| {
         var total_time_stable: u64 = 0;
         var total_time_exp: u64 = 0;
         var total_time_exp2: u64 = 0;
+        var total_time_exp3: u64 = 0;
         var period: usize = 0;
-
-        const seq = try generateSemiRandomSequence(allocator, size, pattern);
-        defer allocator.free(seq);
 
         var timer = try std.time.Timer.start();
 
-        for (0..iterations) |_| {
-            timer.reset();
-            const a = krul(seq, &period, size, 3);
-            total_time_stable += timer.read();
-            timer.reset();
-            const b = krul_exp(seq, &period, size, 3);
-            total_time_exp += timer.read();
-            timer.reset();
-            const c = krul_exp2(seq, &period, size, 3);
-            total_time_exp2 += timer.read();
+        for (0..different_sequences) |_| {
+            const seq = try generateSemiRandomSequence(allocator, size, pattern);
+            defer allocator.free(seq);
 
-            if (a != b or a != c) {
-                std.debug.print("not ok!\n", .{});
+            for (0..iterations) |_| {
+                timer.reset();
+                const a = krul(seq, &period, size, 3);
+                total_time_stable += timer.read();
+                timer.reset();
+                const b = krul_exp(seq, &period, size, 3);
+                total_time_exp += timer.read();
+                timer.reset();
+                const c = krul_exp2(seq, &period, size, 3);
+                total_time_exp2 += timer.read();
+                timer.reset();
+                const d = krul_exp3(seq, &period, size, 3);
+                total_time_exp3 += timer.read();
+
+                if (a != b or a != c or a != d) {
+                    std.debug.print("not ok!\n", .{});
+                }
             }
         }
 
-        const avg_time_stable_ns = total_time_stable / iterations;
-        const avg_time_exp_ns = total_time_exp / iterations;
-        const avg_time_exp2_ns = total_time_exp2 / iterations;
-        try stdout.print("Dataset grootte: {} | Patroongrootte: {} | Gem. tijd: {} ns, {} ns, {} ns\n", .{ size, pattern, avg_time_stable_ns, avg_time_exp_ns, avg_time_exp2_ns });
+        const avg_time_stable_ns = total_time_stable / iterations / different_sequences;
+        const avg_time_exp_ns = total_time_exp / iterations / different_sequences;
+        const avg_time_exp2_ns = total_time_exp2 / iterations / different_sequences;
+        const avg_time_exp3_ns = total_time_exp3 / iterations / different_sequences;
+        try stdout.print("Dataset grootte: {} | Patroongrootte: {} | Gem. tijd: {} ns, {} ns, {} ns, {} ns\n", .{ size, pattern, avg_time_stable_ns, avg_time_exp_ns, avg_time_exp2_ns, avg_time_exp3_ns });
     }
 }
