@@ -36,11 +36,11 @@ pub fn build(b: *std.Build) void {
     });
 
     exe.addCSourceFile(.{
-        .file = b.path("src/c_src/c_func.c"),
+        .file = b.path("src/benches/c_func.c"),
         .flags = CFlags,
     });
 
-    exe.addIncludePath(b.path("src/include/"));
+    exe.addIncludePath(b.path("src/benches/"));
 
     // This declares intent for the executable to be installed into the
     // standard location when the user invokes the "install" step (the default
@@ -98,17 +98,17 @@ pub fn build(b: *std.Build) void {
     });
     //
     unit_tests.addCSourceFile(.{
-        .file = b.path("src/c_src/c_func.c"),
+        .file = b.path("src/benches/c_func.c"),
         .flags = CFlags,
     });
 
     diff_unit_tests.addCSourceFile(.{
-        .file = b.path("src/c_src/c_func.c"),
+        .file = b.path("src/benches/c_func.c"),
         .flags = CFlags,
     });
 
     diff_test_unit_tests.addCSourceFile(.{
-        .file = b.path("src/c_src/c_func.c"),
+        .file = b.path("src/benches/c_func.c"),
         .flags = CFlags,
     });
 
