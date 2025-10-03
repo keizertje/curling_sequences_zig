@@ -1,6 +1,7 @@
 const std = @import("std");
 const diff = @import("diff.zig").diff_best;
-pub const krul_stable = krul_exp2;
+const diff_fast = @import("diff.zig").diff_comptime_len_best;
+pub const krul_stable = krul_exp4;
 
 pub fn krul(seq: []const i16, period: *usize, len: usize, minimum: i16) i16 {
     var curl: i16 = minimum - 1;
@@ -120,12 +121,37 @@ pub fn krul_exp3(seq: []const i16, period: *usize, len: usize, minimum: i16) i16
 fn krul_exp4(seq: []const i16, period: *usize, len: usize, minimum: i16) i16 {
     var curl: i16 = minimum - 1;
     var limit = @divTrunc(len, @as(usize, @intCast(minimum)));
-    var i: usize = 1;
+    inline for (1..100) |i| {
+        if (i > limit) break;
+        const p1: []const i16 = seq[len - i .. len];
+        var p2 = p1;
+        p2.ptr -= i;
+        var freq: usize = 2;
+        while (freq * i <= len) : ({
+            freq += 1;
+            p2.ptr -= i;
+        }) {
+            if (diff_fast(p1, p2, i)) {
+                break;
+            }
+        }
+        if (curl < freq - 1) {
+            curl = @intCast(freq - 1);
+            limit = @divTrunc(len, @as(usize, @intCast(curl + 1)));
+            period.* = i;
+        }
+    }
+    var i: usize = 100;
     while (i <= limit) : (i += 1) {
         const p1: []const i16 = seq[len - i .. len];
+        var p2 = p1;
+        p2.ptr -= i;
         var freq: usize = 2;
-        while (freq * i <= len) : (freq += 1) {
-            if (diff(p1, seq[len - freq * i .. len - freq * i + i])) {
+        while (freq * i <= len) : ({
+            freq += 1;
+            p2.ptr -= i;
+        }) {
+            if (diff(p1, p2)) {
                 break;
             }
         }
@@ -169,6 +195,7 @@ pub fn main() !void {
         var total_time_exp: u64 = 0;
         var total_time_exp2: u64 = 0;
         var total_time_exp3: u64 = 0;
+        var total_time_exp4: u64 = 0;
         var period: usize = 0;
 
         var timer = try std.time.Timer.start();
@@ -190,8 +217,11 @@ pub fn main() !void {
                 timer.reset();
                 const d = krul_exp3(seq, &period, size, 3);
                 total_time_exp3 += timer.read();
+                timer.reset();
+                const e = krul_exp4(seq, &period, size, 3);
+                total_time_exp4 += timer.read();
 
-                if (a != b or a != c or a != d) {
+                if (a != b or a != c or a != d or a != e) {
                     std.debug.print("not ok!\n", .{});
                 }
             }
@@ -201,6 +231,7 @@ pub fn main() !void {
         const avg_time_exp_ns = total_time_exp / iterations / different_sequences;
         const avg_time_exp2_ns = total_time_exp2 / iterations / different_sequences;
         const avg_time_exp3_ns = total_time_exp3 / iterations / different_sequences;
-        try stdout.print("Dataset grootte: {} | Patroongrootte: {} | Gem. tijd: {} ns, {} ns, {} ns, {} ns\n", .{ size, pattern, avg_time_stable_ns, avg_time_exp_ns, avg_time_exp2_ns, avg_time_exp3_ns });
+        const avg_time_exp4_ns = total_time_exp4 / iterations / different_sequences;
+        try stdout.print("Dataset grootte: {} | Patroongrootte: {} | Gem. tijd: {} ns, {} ns, {} ns, {} ns, {} ns\n", .{ size, pattern, avg_time_stable_ns, avg_time_exp_ns, avg_time_exp2_ns, avg_time_exp3_ns, avg_time_exp4_ns });
     }
 }

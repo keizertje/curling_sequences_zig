@@ -9,7 +9,8 @@ const c = @cImport({
 const c_trans = @import("c_func.zig");
 
 pub const diff_best = diff_std;
-const testing_fn = diff_exp5;
+pub const diff_comptime_len_best = diff_fast2;
+const testing_fn = diff_std;
 
 const diff_exp2 = @import("diff_test.zig").diff_exp2;
 const diff_exp4 = @import("diff_test.zig").diff_exp4;
@@ -109,7 +110,7 @@ fn diff_fast(p1: []const i16, p2: []const i16, comptime len: usize) bool {
 fn diff_fast2(p1: []const i16, p2: []const i16, comptime len: usize) bool {
     const TYPE = @Type(.{ .int = .{
         .signedness = .unsigned,
-        .bits = len,
+        .bits = len * 16,
     } });
 
     const p1_16 = p1.ptr;
@@ -142,8 +143,8 @@ fn benchmark(comptime iterations: usize, comptime size: usize) void {
     var good_a = true;
 
     for (0..iterations / 50_000) |_| {
-        var ptr1 = @as([*]i16, @ptrCast(@alignCast(c.malloc(size + 1).?)));
-        var ptr2 = @as([*]i16, @ptrCast(@alignCast(c.malloc(size + 1).?)));
+        var ptr1 = @as([*]i16, @ptrCast(@alignCast(c.malloc(2 * size + 2).?)));
+        var ptr2 = @as([*]i16, @ptrCast(@alignCast(c.malloc(2 * size + 2).?)));
 
         const buffer1: []i16 = ptr1[0..size];
         const buffer2: []i16 = ptr2[0..size];
