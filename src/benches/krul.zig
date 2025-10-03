@@ -1,7 +1,7 @@
 const std = @import("std");
 const diff = @import("diff.zig").diff_best;
 const diff_fast = @import("diff.zig").diff_comptime_len_best;
-pub const krul_stable = krul_exp4;
+pub const krul_stable = krul_exp2;
 
 pub fn krul(seq: []const i16, period: *usize, len: usize, minimum: i16) i16 {
     var curl: i16 = minimum - 1;
