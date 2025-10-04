@@ -1,4 +1,4 @@
-#include "C:\\Users\\Administrator\\OneDrive\\krul\\src\\benches\\c_func.h"
+#include <stdbool.h>
 #include <stdint.h>
 
 bool diff(const int16_t* p1, const int16_t* p2, int count) {
