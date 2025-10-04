@@ -44,7 +44,7 @@ const context = struct {
     best_tails: std.ArrayList(usize),
     best_grts: std.ArrayList(v16),
 
-    fn init(allocator: std.mem.Allocator, max_depth: usize) @This() {
+    fn init(allocator: std.mem.Allocator) @This() {
         return context{
             .length = 0,
             .c_cand = 0,
@@ -57,7 +57,7 @@ const context = struct {
             .temp = v16.init(allocator),
             .seq_map = std.ArrayList(v16).init(allocator),
             // .change_indices = Map(i16, void).init(allocator),
-            .change_indices = std.DynamicBitSet.initEmpty(allocator, max_depth + 1) catch unreachable,
+            .change_indices = std.DynamicBitSet.initEmpty(allocator, 0) catch unreachable,
             .grts_mem = Map(i16, v16).init(allocator),
             .best_tails = std.ArrayList(usize).init(allocator),
             .best_grts = std.ArrayList(v16).init(allocator),
@@ -359,11 +359,11 @@ pub fn backtracking(ctx: *context) !void {
     }
 }
 
-pub fn worker(thread_number: usize, len: usize, allocator: std.mem.Allocator, max_depth: usize) !void {
+pub fn worker(thread_number: usize, len: usize, allocator: std.mem.Allocator) !void {
     const t0 = std.time.milliTimestamp();
     try output("[{}] Thread {} started!\n", .{ t0, thread_number });
 
-    var ctx = context.init(allocator, max_depth);
+    var ctx = context.init(allocator);
     ctx.length = len;
     try ctx.seq.appendNTimes(0, len);
     try ctx.best_tails.appendNTimes(0, len + 1);
@@ -423,6 +423,9 @@ pub fn worker(thread_number: usize, len: usize, allocator: std.mem.Allocator, ma
             const curl = krul(ctx.seq.items, &period, ctx.length + i - 1, ctx.c_cand);
             if (curl < ctx.c_cand) {
                 // try ctx.change_indices.put(@intCast(i - 1), undefined);
+                if (ctx.change_indices.capacity() < i) {
+                    try ctx.change_indices.resize(i, false);
+                }
                 ctx.change_indices.set(i - 1);
             }
             if (i == ctx.depth) {
@@ -471,7 +474,7 @@ pub fn worker(thread_number: usize, len: usize, allocator: std.mem.Allocator, ma
 }
 
 pub fn generate_combinations(len: usize, max_depth: usize, allocator: std.mem.Allocator) !void {
-    var ctx = context.init(allocator, max_depth);
+    var ctx = context.init(allocator);
     ctx.length = len;
     try ctx.seq.appendNTimes(0, len);
     try ctx.seq_map.ensureTotalCapacity(2 * len + 2);
@@ -528,6 +531,9 @@ pub fn generate_combinations(len: usize, max_depth: usize, allocator: std.mem.Al
                     try ctx.periods.append(ctx.p_cand);
                     try ctx.seq_map.items[@as(usize, @intCast(ctx.c_cand + @as(i16, @intCast(ctx.length))))].append(@as(i16, @intCast(ctx.length + 1)));
                     // try ctx.change_indices.put(@as(i16, @intCast(i - 1)), undefined);
+                    if (ctx.change_indices.capacity() < i) { //
+                        try ctx.change_indices.resize(i, false); // nessesary?
+                    } //
                     ctx.change_indices.set(i - 1);
                 } else {
                     invalid = true;
@@ -626,11 +632,11 @@ inline fn largest_power(n: usize) usize {
 
 fn noerror_generate_cmbs(len: usize, max_depth: usize, allocator: std.mem.Allocator, thread_number: usize) void {
     generate_combinations(len, max_depth, allocator) catch |e| std.debug.panic("error: {any}\n", .{e});
-    worker(thread_number, len, allocator, max_depth) catch |e| std.debug.panic("error: {any}\n", .{e});
+    worker(thread_number, len, allocator) catch |e| std.debug.panic("error: {any}\n", .{e});
 }
 
-fn noerror_worker(thread_number: usize, len: usize, allocator: std.mem.Allocator, max_depth: usize) void {
-    worker(thread_number, len, allocator, max_depth) catch |e| std.debug.panic("error: {any}\n", .{e});
+fn noerror_worker(thread_number: usize, len: usize, allocator: std.mem.Allocator) void {
+    worker(thread_number, len, allocator) catch |e| std.debug.panic("error: {any}\n", .{e});
 }
 
 pub fn main() !void {
@@ -666,7 +672,7 @@ pub fn main() !void {
 
     pool.spawnWg(&wait_group, noerror_generate_cmbs, .{ length, max_depth, allocator, 0 });
     for (1..thread_count) |i| {
-        pool.spawnWg(&wait_group, noerror_worker, .{ i, length, allocator, max_depth });
+        pool.spawnWg(&wait_group, noerror_worker, .{ i, length, allocator });
     }
 
     wait_group.wait();
