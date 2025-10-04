@@ -260,16 +260,12 @@ fn test_cands(ctx: *context) !bool {
     var l = ctx.seq.items.len - 1;
     var lcp: usize = l - @as(usize, @intCast(ctx.p_cand));
     const limit: usize = @intCast((ctx.c_cand - 1) * ctx.p_cand);
-    for (0..limit) |_| {
+    for (0..@min(limit, lcp)) |_| {
         if (ctx.seq.items[l] != ctx.seq.items[lcp] and (ctx.seq.items[l] | ctx.seq.items[lcp]) > 0) {
             return false;
         }
-        if (lcp > 0) { // last iteration, lcp can't be negative, there may be a faster way
-            l -= 1;
-            lcp -= 1;
-        } else if (lcp == 0) {
-            break;
-        }
+        l -= 1;
+        lcp -= 1;
     }
 
     ctx.seq_new.clearRetainingCapacity();
@@ -282,7 +278,7 @@ fn test_cands(ctx: *context) !bool {
     var pairs_len: usize = 0;
     l = ctx.seq.items.len - 1; // reset l and lcp
     lcp = l - @as(usize, @intCast(ctx.p_cand));
-    for (0..limit) |_| {
+    for (0..@min(limit, lcp)) |_| {
         var a = ctx.seq_new.items[l];
         var b = ctx.seq_new.items[lcp];
         if (a != b) {
@@ -319,12 +315,8 @@ fn test_cands(ctx: *context) !bool {
                 }
             }
         }
-        if (lcp > 0) {
-            l -= 1;
-            lcp -= 1;
-        } else if (lcp == 0) {
-            break;
-        }
+        l -= 1;
+        lcp -= 1;
     }
     return true;
 }
