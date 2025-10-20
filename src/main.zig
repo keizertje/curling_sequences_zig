@@ -378,19 +378,24 @@ pub fn worker(thread_number: usize, len: usize, allocator: std.mem.Allocator) !v
     const t0 = std.time.milliTimestamp();
     try output("[{}] Thread {} started!\n", .{ t0, thread_number });
 
+    var new_arena: std.heap.ArenaAllocator = undefined;
+    var new_fast_allocator: std.mem.Allocator = undefined;
+    var arena = std.heap.ArenaAllocator.init(allocator);
+    var fast_allocator = arena.allocator();
+
     var ctx_new: context = undefined;
-    var ctx = context.init(allocator);
+    var ctx = context.init(fast_allocator);
     ctx.length = len;
     try ctx.seq.appendNTimes(0, len);
     try ctx.best_tails.appendNTimes(0, len + 1);
     try ctx.best_grts.ensureTotalCapacity(len + 1);
     for (0..len + 1) |i| {
-        try ctx.best_grts.append(v16.init(allocator));
+        try ctx.best_grts.append(v16.init(fast_allocator));
         try ctx.best_grts.items[i].appendNTimes(0, len);
     }
     try ctx.seq_map.ensureTotalCapacity(2 * len + 2);
     for (0..2 * len + 2) |_| {
-        try ctx.seq_map.append(try v16.initCapacity(allocator, 10));
+        try ctx.seq_map.append(try v16.initCapacity(fast_allocator, 10));
     }
 
     var cmb: v16 = undefined;
@@ -409,38 +414,49 @@ pub fn worker(thread_number: usize, len: usize, allocator: std.mem.Allocator) !v
             }
         }
 
+        new_arena = std.heap.ArenaAllocator.init(allocator);
+
+        new_fast_allocator = new_arena.allocator();
+
         ctx_new = .{
             .length = ctx.length,
             .c_cand = 0,
             .p_cand = 0,
             .depth = 0,
-            .seq = std.ArrayList(i16).init(allocator),
-            .seq_new = std.ArrayList(i16).init(allocator),
-            .periods = std.ArrayList(i16).init(allocator),
-            .pairs = std.ArrayList(i16).init(allocator),
-            .temp = std.ArrayList(i16).init(allocator),
-            .seq_map = try std.ArrayList(v16).initCapacity(allocator, ctx.length),
+            .seq = std.ArrayList(i16).init(new_fast_allocator),
+            .seq_new = std.ArrayList(i16).init(new_fast_allocator),
+            .periods = std.ArrayList(i16).init(new_fast_allocator),
+            .pairs = std.ArrayList(i16).init(new_fast_allocator),
+            .temp = std.ArrayList(i16).init(new_fast_allocator),
+            .seq_map = try std.ArrayList(v16).initCapacity(new_fast_allocator, ctx.length),
             // .change_indices = Map(i16, void).init(allocator),
-            .change_indices = try std.DynamicBitSet.initEmpty(allocator, ctx.change_indices.capacity()),
-            .grts_mem = Map(i16, v16).init(allocator),
-            .best_tails = try ctx.best_tails.clone(),
-            .best_grts = try std.ArrayList(v16).initCapacity(allocator, ctx.best_grts.items.len),
+            .change_indices = try std.DynamicBitSet.initEmpty(new_fast_allocator, ctx.change_indices.capacity()),
+            .grts_mem = Map(i16, v16).init(new_fast_allocator),
+            .best_tails = try std.ArrayList(usize).initCapacity(new_fast_allocator, ctx.best_tails.items.len),
+            .best_grts = try std.ArrayList(v16).initCapacity(new_fast_allocator, ctx.best_grts.items.len),
         };
+
+        try ctx_new.best_tails.appendSlice(ctx.best_tails.items);
 
         try ctx_new.seq_map.ensureTotalCapacity(2 * len + 2);
         for (0..2 * len + 2) |_| {
-            try ctx_new.seq_map.append(try v16.initCapacity(allocator, 10));
+            try ctx_new.seq_map.append(try v16.initCapacity(new_fast_allocator, 10));
         }
 
         var it = ctx.grts_mem.iterator();
         while (it.next()) |item| {
-            try ctx_new.grts_mem.put(item.key_ptr.*, try item.value_ptr.clone());
+            try ctx_new.grts_mem.put(item.key_ptr.*, try v16.initCapacity(new_fast_allocator, item.value_ptr.items.len));
+            try ctx_new.grts_mem.getPtr(item.key_ptr.*).?.appendSlice(item.value_ptr.items);
         }
         for (ctx.best_grts.items) |item| {
-            try ctx_new.best_grts.append(try item.clone());
+            try ctx_new.best_grts.append(try v16.initCapacity(new_fast_allocator, item.items.len));
+            try ctx_new.best_grts.items[ctx_new.best_grts.items.len - 1].appendSlice(item.items);
         }
         ctx.deinit();
+        arena.deinit();
         ctx = ctx_new;
+        arena = new_arena;
+        fast_allocator = new_fast_allocator;
 
         const t1 = std.time.milliTimestamp();
         _ = &t1;
@@ -513,7 +529,7 @@ pub fn worker(thread_number: usize, len: usize, allocator: std.mem.Allocator) !v
             if (ctx.best_tails.items[i] > g_best_tails.items[i]) {
                 g_best_tails.items[i] = ctx.best_tails.items[i];
                 g_best_grts.items[i].clearRetainingCapacity();
-                g_best_grts.items[i] = try ctx.best_grts.items[i].clone();
+                try g_best_grts.items[i].appendSlice(ctx.best_grts.items[i].items);
             }
         }
     }
