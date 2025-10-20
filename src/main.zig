@@ -63,6 +63,29 @@ const context = struct {
             .best_grts = std.ArrayList(v16).init(allocator),
         };
     }
+
+    fn deinit(self: *@This()) void {
+        self.seq.deinit();
+        self.seq_new.deinit();
+        self.periods.deinit();
+        self.pairs.deinit();
+        self.temp.deinit();
+        for (self.seq_map.items) |item| {
+            item.deinit();
+        }
+        self.seq_map.deinit();
+        self.change_indices.deinit();
+        var it = self.grts_mem.iterator();
+        while (it.next()) |item| {
+            item.value_ptr.deinit();
+        }
+        self.grts_mem.deinit();
+        self.best_tails.deinit();
+        for (self.best_grts.items) |item| {
+            item.deinit();
+        }
+        self.best_grts.deinit();
+    }
 };
 
 var known_tails: [390]usize = undefined;
@@ -355,6 +378,7 @@ pub fn worker(thread_number: usize, len: usize, allocator: std.mem.Allocator) !v
     const t0 = std.time.milliTimestamp();
     try output("[{}] Thread {} started!\n", .{ t0, thread_number });
 
+    var ctx_new: context = undefined;
     var ctx = context.init(allocator);
     ctx.length = len;
     try ctx.seq.appendNTimes(0, len);
@@ -384,6 +408,37 @@ pub fn worker(thread_number: usize, len: usize, allocator: std.mem.Allocator) !v
                 break;
             }
         }
+
+        ctx_new = .{
+            .length = ctx.length,
+            .c_cand = ctx.c_cand,
+            .p_cand = ctx.p_cand,
+            .depth = ctx.depth,
+            .seq = try ctx.seq.clone(),
+            .seq_new = try ctx.seq_new.clone(),
+            .periods = try ctx.periods.clone(),
+            .pairs = try ctx.pairs.clone(),
+            .temp = try ctx.temp.clone(),
+            .seq_map = try std.ArrayList(v16).initCapacity(allocator, ctx.seq_map.items.len),
+            // .change_indices = Map(i16, void).init(allocator),
+            .change_indices = try ctx.change_indices.clone(allocator),
+            .grts_mem = Map(i16, v16).init(allocator),
+            .best_tails = try ctx.best_tails.clone(),
+            .best_grts = try std.ArrayList(v16).initCapacity(allocator, ctx.best_grts.items.len),
+        };
+
+        for (ctx.seq_map.items) |item| {
+            try ctx_new.seq_map.append(try item.clone());
+        }
+        var it = ctx.grts_mem.iterator();
+        while (it.next()) |item| {
+            try ctx_new.grts_mem.put(item.key_ptr.*, try item.value_ptr.clone());
+        }
+        for (ctx.best_grts.items) |item| {
+            try ctx_new.best_grts.append(try item.clone());
+        }
+        ctx.deinit();
+        ctx = ctx_new;
 
         const t1 = std.time.milliTimestamp();
         _ = &t1;
