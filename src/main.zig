@@ -411,25 +411,27 @@ pub fn worker(thread_number: usize, len: usize, allocator: std.mem.Allocator) !v
 
         ctx_new = .{
             .length = ctx.length,
-            .c_cand = ctx.c_cand,
-            .p_cand = ctx.p_cand,
-            .depth = ctx.depth,
-            .seq = try ctx.seq.clone(),
-            .seq_new = try ctx.seq_new.clone(),
-            .periods = try ctx.periods.clone(),
-            .pairs = try ctx.pairs.clone(),
-            .temp = try ctx.temp.clone(),
-            .seq_map = try std.ArrayList(v16).initCapacity(allocator, ctx.seq_map.items.len),
+            .c_cand = 0,
+            .p_cand = 0,
+            .depth = 0,
+            .seq = try std.ArrayList(i16).initCapacity(allocator, ctx.length),
+            .seq_new = try std.ArrayList(i16).initCapacity(allocator, ctx.length),
+            .periods = std.ArrayList(i16).init(allocator),
+            .pairs = std.ArrayList(i16).init(allocator),
+            .temp = std.ArrayList(i16).init(allocator),
+            .seq_map = try std.ArrayList(v16).initCapacity(allocator, ctx.length),
             // .change_indices = Map(i16, void).init(allocator),
-            .change_indices = try ctx.change_indices.clone(allocator),
+            .change_indices = try std.DynamicBitSet.initEmpty(allocator, ctx.change_indices.capacity()),
             .grts_mem = Map(i16, v16).init(allocator),
             .best_tails = try ctx.best_tails.clone(),
             .best_grts = try std.ArrayList(v16).initCapacity(allocator, ctx.best_grts.items.len),
         };
 
-        for (ctx.seq_map.items) |item| {
-            try ctx_new.seq_map.append(try item.clone());
+        try ctx_new.seq_map.ensureTotalCapacity(2 * len + 2);
+        for (0..2 * len + 2) |_| {
+            try ctx_new.seq_map.append(try v16.initCapacity(allocator, 10));
         }
+
         var it = ctx.grts_mem.iterator();
         while (it.next()) |item| {
             try ctx_new.grts_mem.put(item.key_ptr.*, try item.value_ptr.clone());
