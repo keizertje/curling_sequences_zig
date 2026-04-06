@@ -37,12 +37,14 @@ const context = struct {
     periods: v16,
     pairs: v16,
     temp: v16,
-    seq_map: std.ArrayList(v16),
+    // seq_map: std.ArrayList(v16),
+    seq_map: std.ArrayList(std.DoublyLinkedList(i16)),
     // change_indices: Map(i16, void),
     change_indices: std.DynamicBitSet,
     grts_mem: Map(i16, v16),
     best_tails: std.ArrayList(usize),
     best_grts: std.ArrayList(v16),
+    allocator: std.mem.Allocator,
 
     fn init(allocator: std.mem.Allocator) @This() {
         return context{
@@ -55,12 +57,13 @@ const context = struct {
             .periods = v16.init(allocator),
             .pairs = v16.init(allocator),
             .temp = v16.init(allocator),
-            .seq_map = std.ArrayList(v16).init(allocator),
+            .seq_map = std.ArrayList(std.DoublyLinkedList(i16)).init(allocator),
             // .change_indices = Map(i16, void).init(allocator),
             .change_indices = std.DynamicBitSet.initEmpty(allocator, 0) catch unreachable,
             .grts_mem = Map(i16, v16).init(allocator),
             .best_tails = std.ArrayList(usize).init(allocator),
             .best_grts = std.ArrayList(v16).init(allocator),
+            .allocator = allocator,
         };
     }
 };
@@ -185,8 +188,15 @@ fn backtracking_step(ctx: *context) !void {
                 defer temp.deinit();
                 for (ctx.seq.items[0..ctx.length], 0..) |item, i| {
                     if (item != temp.items[i]) {
-                        erase(&ctx.seq_map.items[@as(usize, @intCast(item + @as(i16, @intCast(ctx.length))))], @intCast(i));
-                        try ctx.seq_map.items[@as(usize, @intCast(temp.items[i] + @as(i16, @intCast(ctx.length))))].append(@intCast(i));
+                        // erase(&ctx.seq_map.items[@as(usize, @intCast(item + @as(i16, @intCast(ctx.length))))], @intCast(i));
+                        var it = ctx.seq_map.items[@as(usize, @intCast(item + @as(i16, @intCast(ctx.length))))].last;
+                        while (it.?.data != i) : (it = it.?.prev) {} // traverse backwards
+                        ctx.seq_map.items[@as(usize, @intCast(item + @as(i16, @intCast(ctx.length))))].remove(it.?);
+                        ctx.allocator.destroy(it.?);
+                        // try ctx.seq_map.items[@as(usize, @intCast(temp.items[i] + @as(i16, @intCast(ctx.length))))].append(@intCast(i));
+                        const node = try ctx.allocator.create(std.DoublyLinkedList(i16).Node);
+                        node.data = @intCast(i);
+                        ctx.seq_map.items[@as(usize, @intCast(temp.items[i] + @as(i16, @intCast(ctx.length))))].append(node);
                         ctx.seq.items[i] = temp.items[i];
                     }
                 }
@@ -195,8 +205,12 @@ fn backtracking_step(ctx: *context) !void {
             // implementation of std::find
             // var i: usize = 0;
             // while (ctx.seq_map.items[@as(usize, @intCast(ctx.seq.getLast())) + ctx.length].items[i] != ctx.seq.items.len - 1) : (i += 1) {}
-            const i = std.mem.indexOfScalar(i16, ctx.seq_map.items[@as(usize, @intCast(ctx.seq.getLast())) + ctx.length].items, @intCast(ctx.seq.items.len - 1)).?;
-            _ = ctx.seq_map.items[@as(usize, @intCast(ctx.seq.getLast())) + ctx.length].swapRemove(i);
+            // const i = std.mem.indexOfScalar(i16, ctx.seq_map.items[@as(usize, @intCast(ctx.seq.getLast())) + ctx.length].items, @intCast(ctx.seq.items.len - 1)).?;
+            // _ = ctx.seq_map.items[@as(usize, @intCast(ctx.seq.getLast())) + ctx.length].swapRemove(i);
+            var it = ctx.seq_map.items[@as(usize, @intCast(ctx.seq.getLast())) + ctx.length].last; // is this faster or slower than starting from head?
+            while (it.?.data != ctx.seq.items.len - 1) : (it = it.?.prev) {} // traverse backwards
+            ctx.seq_map.items[@as(usize, @intCast(ctx.seq.getLast())) + ctx.length].remove(it.?);
+            ctx.allocator.destroy(it.?);
             _ = ctx.seq.pop();
             _ = ctx.periods.pop();
             // if (ctx.change_indices.contains(k + 1)) {
@@ -217,10 +231,11 @@ fn real_grtr_len(ctx: *context) usize {
 fn append(ctx: *context) !void {
     var i: usize = 0;
     while (i < ctx.pairs.items.len) : (i += 2) {
-        for (ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[i + 1] + @as(i16, @intCast(ctx.length))))].items) |x| {
-            try ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[i] + @as(i16, @intCast(ctx.length))))].append(x);
-        }
-        ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[i + 1] + @as(i16, @intCast(ctx.length))))].clearRetainingCapacity();
+        // for (ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[i + 1] + @as(i16, @intCast(ctx.length))))].items) |x| {
+        //     try ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[i] + @as(i16, @intCast(ctx.length))))].append(x);
+        // }
+        // ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[i + 1] + @as(i16, @intCast(ctx.length))))].clearRetainingCapacity();
+        ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[i] + @as(i16, @intCast(ctx.length))))].concatByMoving(&ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[i + 1] + @as(i16, @intCast(ctx.length))))]); // concatenates both and clears the last. O(1)!!
     }
     ctx.seq.shrinkRetainingCapacity(ctx.length);
     if (ctx.grts_mem.contains(@intCast(ctx.periods.items.len))) {
@@ -232,13 +247,18 @@ fn append(ctx: *context) !void {
     try ctx.seq.append(ctx.c_cand);
     try ctx.periods.append(ctx.p_cand);
     var seq_len = ctx.seq.items.len;
-    try ctx.seq_map.items[@as(usize, @intCast(ctx.c_cand)) + ctx.length].append(@intCast(seq_len - 1));
+    // try ctx.seq_map.items[@as(usize, @intCast(ctx.c_cand)) + ctx.length].append(@intCast(seq_len - 1));
+    var node = try ctx.allocator.create(std.DoublyLinkedList(i16).Node);
+    node.data = @intCast(seq_len - 1);
+    ctx.seq_map.items[@as(usize, @intCast(ctx.c_cand)) + ctx.length].append(node);
     var period: usize = 0;
     while (true) {
         const curl = krul(ctx.seq.items, &period, seq_len, 2);
         if (curl == 1) break;
         try ctx.seq.append(curl);
-        try ctx.seq_map.items[@as(usize, @intCast(curl)) + ctx.length].append(@intCast(seq_len));
+        node = try ctx.allocator.create(std.DoublyLinkedList(i16).Node);
+        node.data = @intCast(seq_len);
+        ctx.seq_map.items[@as(usize, @intCast(curl)) + ctx.length].append(node);
         seq_len += 1;
         try ctx.periods.append(@intCast(period));
     }
@@ -310,8 +330,13 @@ fn test_cands(ctx: *context) !bool {
                 }
             }
             for (ctx.temp.items) |x| {
-                for (ctx.seq_map.items[@intCast(x + @as(i16, @intCast(ctx.length)))].items) |ind| {
-                    ctx.seq_new.items[@intCast(ind)] = b;
+                // for (ctx.seq_map.items[@intCast(x + @as(i16, @intCast(ctx.length)))].items) |ind| {
+                //     ctx.seq_new.items[@intCast(ind)] = b;
+                // }
+                var it = ctx.seq_map.items[@intCast(x + @as(i16, @intCast(ctx.length)))].first;
+                while (it) |node| {
+                    ctx.seq_new.items[@intCast(node.data)] = b;
+                    it = node.next;
                 }
             }
         }
@@ -366,7 +391,7 @@ pub fn worker(thread_number: usize, len: usize, allocator: std.mem.Allocator) !v
     }
     try ctx.seq_map.ensureTotalCapacity(2 * len + 2);
     for (0..2 * len + 2) |_| {
-        try ctx.seq_map.append(try v16.initCapacity(allocator, 10));
+        try ctx.seq_map.append(.{});
     }
 
     var cmb: v16 = undefined;
@@ -396,11 +421,16 @@ pub fn worker(thread_number: usize, len: usize, allocator: std.mem.Allocator) !v
         }
 
         for (0..ctx.seq_map.items.len) |i| {
-            ctx.seq_map.items[i].clearRetainingCapacity();
+            // ctx.seq_map.items[i].first = null; // ???
+            while (ctx.seq_map.items[i].popFirst()) |node| {
+                ctx.allocator.destroy(node);
+            }
         }
 
         for (0..ctx.length) |j| {
-            try ctx.seq_map.items[j].append(@intCast(j));
+            const node = try ctx.allocator.create(std.DoublyLinkedList(i16).Node);
+            node.data = @intCast(j);
+            ctx.seq_map.items[j].append(node);
         }
 
         ctx.periods.clearRetainingCapacity();
@@ -427,15 +457,19 @@ pub fn worker(thread_number: usize, len: usize, allocator: std.mem.Allocator) !v
             _ = try test_cands(&ctx) and try test_seq_new(&ctx);
             var j: usize = 0;
             while (j < ctx.pairs.items.len) : (j += 2) {
-                for (ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[j + 1] + @as(i16, @intCast(ctx.length))))].items) |x| {
-                    try ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[j] + @as(i16, @intCast(ctx.length))))].append(x);
-                }
-                ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[j + 1] + @as(i16, @intCast(ctx.length))))].clearRetainingCapacity();
+                // for (ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[j + 1] + @as(i16, @intCast(ctx.length))))].items) |x| {
+                //     try ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[j] + @as(i16, @intCast(ctx.length))))].append(x);
+                // }
+                // ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[j + 1] + @as(i16, @intCast(ctx.length))))].clearRetainingCapacity();
+                ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[j] + @as(i16, @intCast(ctx.length))))].concatByMoving(&ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[j + 1] + @as(i16, @intCast(ctx.length))))]);
             }
             std.mem.swap(v16, &ctx.seq, &ctx.seq_new);
             try ctx.seq.append(ctx.c_cand);
             try ctx.periods.append(ctx.p_cand);
-            try ctx.seq_map.items[@as(usize, @intCast(ctx.c_cand)) + ctx.length].append(@intCast(ctx.length + 1));
+            // try ctx.seq_map.items[@as(usize, @intCast(ctx.c_cand)) + ctx.length].append(@intCast(ctx.length + 1));
+            const node = try ctx.allocator.create(std.DoublyLinkedList(i16).Node);
+            node.data = @intCast(ctx.length + 1);
+            ctx.seq_map.items[@as(usize, @intCast(ctx.c_cand)) + ctx.length].append(node);
         }
 
         try backtracking(&ctx);
@@ -471,7 +505,7 @@ pub fn generate_combinations(len: usize, max_depth: usize, allocator: std.mem.Al
     try ctx.seq.appendNTimes(0, len);
     try ctx.seq_map.ensureTotalCapacity(2 * len + 2);
     for (0..2 * len + 2) |_| {
-        try ctx.seq_map.append(try v16.initCapacity(allocator, 10)); // assume capacity
+        try ctx.seq_map.append(.{}); // assume capacity
     }
     try ctx.best_tails.appendNTimes(0, len + 1);
     try ctx.best_grts.ensureTotalCapacity(len + 1);
@@ -497,10 +531,15 @@ pub fn generate_combinations(len: usize, max_depth: usize, allocator: std.mem.Al
                 ctx.seq.items[i] = -@as(i16, @intCast(ctx.length)) + @as(i16, @intCast(i));
             }
             for (0..ctx.seq_map.items.len) |i| {
-                ctx.seq_map.items[i].clearRetainingCapacity();
+                // ctx.seq_map.items[i].first = null; // ??
+                while (ctx.seq_map.items[i].popFirst()) |node| {
+                    ctx.allocator.destroy(node);
+                }
             }
             for (0..ctx.length) |j| {
-                try ctx.seq_map.items[j].append(@as(i16, @intCast(j)));
+                const node = try ctx.allocator.create(std.DoublyLinkedList(i16).Node);
+                node.data = @intCast(j);
+                ctx.seq_map.items[j].append(node);
             }
             ctx.periods.clearRetainingCapacity();
             // ctx.change_indices.clearRetainingCapacity();
@@ -513,15 +552,18 @@ pub fn generate_combinations(len: usize, max_depth: usize, allocator: std.mem.Al
                 if (try test_cands(&ctx) and try test_seq_new(&ctx)) {
                     var j: usize = 0;
                     while (j < ctx.pairs.items.len) : (j += 2) {
-                        for (ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[j + 1] + @as(i16, @intCast(ctx.length))))].items) |x| {
-                            try ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[j] + @as(i16, @intCast(ctx.length))))].append(x);
-                        }
-                        ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[j + 1] + @as(i16, @intCast(ctx.length))))].clearRetainingCapacity();
+                        // for (ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[j + 1] + @as(i16, @intCast(ctx.length))))].items) |x| {
+                        //     try ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[j] + @as(i16, @intCast(ctx.length))))].append(x);
+                        // }
+                        // ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[j + 1] + @as(i16, @intCast(ctx.length))))].clearRetainingCapacity();
+                        ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[j] + @as(i16, @intCast(ctx.length))))].concatByMoving(&ctx.seq_map.items[@as(usize, @intCast(ctx.pairs.items[j + 1] + @as(i16, @intCast(ctx.length))))]);
                     }
                     std.mem.swap(v16, &ctx.seq, &ctx.seq_new);
                     try ctx.seq.append(ctx.c_cand);
                     try ctx.periods.append(ctx.p_cand);
-                    try ctx.seq_map.items[@as(usize, @intCast(ctx.c_cand + @as(i16, @intCast(ctx.length))))].append(@as(i16, @intCast(ctx.length + 1)));
+                    const node = try ctx.allocator.create(std.DoublyLinkedList(i16).Node);
+                    node.data = @intCast(ctx.length + 1);
+                    ctx.seq_map.items[@as(usize, @intCast(ctx.c_cand + @as(i16, @intCast(ctx.length))))].append(node);
                     // try ctx.change_indices.put(@as(i16, @intCast(i - 1)), undefined);
                     if (ctx.change_indices.capacity() < i) { //
                         try ctx.change_indices.resize(i, false); // nessesary?
